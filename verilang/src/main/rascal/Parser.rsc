@@ -1,4 +1,4 @@
-module ToAST
+module Parser
 
 import AST;
 import ParseTree;

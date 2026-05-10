@@ -1,6 +1,7 @@
 defmodule errortest
 defspace nat end
 defoperator plus : nat -> nat -> nat end
+defoperator leq : nat -> nat -> Bool end
 defvar x : nat end
 
 defrule (plus x y) -> (minus x y) end
@@ -8,4 +9,12 @@ defrule (plus x y) -> (minus x y) end
 defexpression neg (x = z) end
 
 defexpression (undefined-op x y) end
+
+defvar bad : missing-space end
+
+defspace child < missing-parent end
+
+defexpression forall n in missing-domain . (leq n x) end
+
+defexpression (plus x true) end
 end

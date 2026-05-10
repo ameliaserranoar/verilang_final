@@ -1,12 +1,12 @@
-module run
+module ParseExample
 import IO;
 import ParseTree;
 import Syntax;
-import ToAST;
+import Parser;
 import AST;
 
 public void main(list[str] args) {
-  loc input = |file:///mnt/datos/Proyectos-Linux/Verilang/Entrega_3/verilang/instance/test_2.vl|;
+  loc input = |cwd:///instance/test_2.vl|;
   str code = readFile(input);
   try {
     Tree tree = parse(#start[Module], code, input);

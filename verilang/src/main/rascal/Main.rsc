@@ -3,10 +3,11 @@ module Main
 import IO;
 import ParseTree;
 import Syntax;
-import ToAST;
-import Validate;
-import Eval;
-import Val;
+import Parser;
+import Checker;
+import Interpreter;
+import RuntimeValue;
+import AST;
 import List;
 
 private map[str, list[AST::RuleDef]] buildRuleMap(AST::Module m) {
@@ -31,7 +32,7 @@ private str evalExprDef(AST::ExpressionDef ed, map[str, list[AST::RuleDef]] rule
   switch (ed) {
     case AST::expressionNode(expr, _):
       try
-        return "Result: <show(Eval::eval(expr, (), ruleMap))>";
+        return "Result: <show(Interpreter::eval(expr, (), ruleMap))>";
       catch err:
         return "Cannot evaluate: <err>";
     default: return "Unknown expression definition";
@@ -51,7 +52,7 @@ public int main(list[str] args) {
     println(ast);
     println("");
     println("Validation errors:");
-    list[str] errors = Validate::check(ast);
+    list[str] errors = Checker::check(ast);
     if (errors == []) {
       println("No errors found.");
     } else {

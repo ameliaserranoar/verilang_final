@@ -5,7 +5,7 @@ defspace expr end
 defspace nat < expr end
 
 defoperator plus : nat -> nat -> nat [commutative associative] end
-defoperator leq : nat -> bool [precedence:low] end
+defoperator leq : nat -> Bool [precedence:low] end
 
 defvar x : nat, y : nat, z : nat end
 

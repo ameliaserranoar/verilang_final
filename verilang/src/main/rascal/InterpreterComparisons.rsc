@@ -1,7 +1,7 @@
-module EvalComp
+module InterpreterComparisons
 
 import AST;
-import Val;
+import RuntimeValue;
 
 public Val evalComparison(AST::ComparisonOp op, Val l, Val r) {
   switch (op) {

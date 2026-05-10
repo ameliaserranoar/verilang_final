@@ -1,21 +1,21 @@
-module RunTest2
+module RunPrimitiveExample
 import IO;
 import ParseTree;
 import Syntax;
-import ToAST;
-import Validate;
-import Eval;
-import Val;
+import Parser;
+import Checker;
+import Interpreter;
+import RuntimeValue;
 import AST;
 import List;
 
 public void main(list[str] args) {
-  loc input = |file:///mnt/datos/Proyectos-Linux/Verilang/Entrega_3/verilang/instance/test_2.vl|;
+  loc input = |cwd:///instance/test_2.vl|;
   str code = readFile(input);
   Tree tree = parse(#start[Module], code, input).top;
   AST::Module ast = toAST(tree);
 
-  errors = Validate::check(ast);
+  errors = Checker::check(ast);
   println("Validation: <errors>");
 
   map[str, list[AST::RuleDef]] ruleMap = ();
@@ -35,7 +35,7 @@ public void main(list[str] args) {
     switch (def) {
       case AST::expressionDefinition(AST::expressionNode(expr, _)):
         try {
-          Val v = Eval::eval(expr, (), ruleMap);
+          Val v = Interpreter::eval(expr, (), ruleMap);
           println("  " + show(v));
         } catch e:
           println("  Error: <e>");

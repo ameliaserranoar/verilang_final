@@ -1,7 +1,7 @@
-module EvalUtil
+module InterpreterLiterals
 
 import AST;
-import Val;
+import RuntimeValue;
 
 public Val evalLiteral(AST::Literal lit) {
   switch (lit) {

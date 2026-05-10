@@ -1,13 +1,13 @@
-module Eval
+module Interpreter
 
 import AST;
-import Val;
+import RuntimeValue;
 import String;
 import List;
-import MatchUtil;
-import EvalUtil;
-import EvalComp;
-import EvalExtra;
+import RuleMatcher;
+import InterpreterLiterals;
+import InterpreterComparisons;
+import InterpreterOperators;
 
 private Val evalAppExpr(
     AST::Application app, map[str, Val] env,

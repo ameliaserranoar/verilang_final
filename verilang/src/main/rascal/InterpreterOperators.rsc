@@ -1,6 +1,6 @@
-module EvalExtra
+module InterpreterOperators
 
-import Val;
+import RuntimeValue;
 
 public Val evalNeg(Val v) {
   if (boolVal(b) := v) return boolVal(!b);
