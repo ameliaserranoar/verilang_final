@@ -1,0 +1,15 @@
+defmodule demo
+using math
+
+defspace expr end
+defspace nat < expr end
+
+defoperator plus : nat -> nat -> nat [commutative associative] end
+defoperator leq : nat -> bool [precedence:low] end
+
+defvar x : nat, y : nat, z : nat end
+
+defrule (plus x y) -> (plus y x) end
+
+defexpression forall x in nat . exists y in nat . neg (x = y) [checked source:user] end
+end
