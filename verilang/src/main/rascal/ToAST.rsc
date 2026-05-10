@@ -182,6 +182,10 @@ private AST::Expression toExpression(Tree tree) {
       return AST::literal(AST::floatLiteral(toReal(text(val))));
     case (Atom) `<CharLiteral val>`:
       return AST::literal(AST::charLiteral(text(val)));
+    case (Atom) `<BoolLiteral val>`:
+      return AST::literal(AST::boolLiteral(text(val) == "true"));
+    case (Atom) `<StringLiteral val>`:
+      return AST::literal(AST::stringLiteral(text(val)[1..size(text(val))-1]));
     case (Atom) `(<LogicalExpression expr>)`:
       return toExpression(expr);
     default:
