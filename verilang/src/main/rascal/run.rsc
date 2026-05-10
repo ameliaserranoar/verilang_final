@@ -16,9 +16,7 @@ public void main(list[str] args) {
     println("AST generated successfully:");
     iprintln(ast);
     
-  } catch ParseError(loc l): {
-    println("ParseError at <l>");
-  } catch Ambiguity(loc l, str rule, str s): {
-    println("Ambiguity at <l>");
+  } catch e: {
+    println("Error: <e>");
   }
 }
