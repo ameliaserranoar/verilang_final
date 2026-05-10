@@ -1,0 +1,11 @@
+defmodule errortest
+defspace nat end
+defoperator plus : nat -> nat -> nat end
+defvar x : nat end
+
+defrule (plus x y) -> (minus x y) end
+
+defexpression neg (x = z) end
+
+defexpression (undefined-op x y) end
+end

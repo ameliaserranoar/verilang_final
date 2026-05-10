@@ -24,7 +24,7 @@ private AST::Definition toDefinition(Tree tree) {
     case (Definition) `<SpaceDef spaceDecl>`:
       return AST::spaceDefinition(toSpaceDef(spaceDecl));
     case (Definition) `<OperatorDef operatorDecl>`:
-      return AST::operatorDefinition(toOperatorDef(operatorDecl));
+      return AST::opDefinition(toOperatorDef(operatorDecl));
     case (Definition) `<VarDef varDecl>`:
       return AST::varDefinition(toVarDef(varDecl));
     case (Definition) `<RuleDef ruleDecl>`:

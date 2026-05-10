@@ -7,7 +7,7 @@ data Module
 data Definition
   = usingDefinition(Using usingDecl)
   | spaceDefinition(SpaceDef spaceDecl)
-  | operatorDefinition(OperatorDef operatorDecl)
+  | opDefinition(OperatorDef operatorDecl)
   | varDefinition(VarDef varDecl)
   | ruleDefinition(RuleDef ruleDecl)
   | expressionDefinition(ExpressionDef exprDecl)

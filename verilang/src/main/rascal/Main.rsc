@@ -4,6 +4,7 @@ import IO;
 import ParseTree;
 import Syntax;
 import ToAST;
+import Validate;
 
 public int main(list[str] args) {
     loc input = |cwd:///instance/test.vl|;
@@ -14,6 +15,17 @@ public int main(list[str] args) {
     println(tree);
     println("");
     println("AST:");
-    println(toAST(tree));
+    ast = toAST(tree);
+    println(ast);
+    println("");
+    println("Validation errors:");
+    errors = Validate::check(ast);
+    if (errors == []) {
+      println("No errors found.");
+    } else {
+      for (err <- errors) {
+        println("- <err>");
+      }
+    }
     return 0;
 }
