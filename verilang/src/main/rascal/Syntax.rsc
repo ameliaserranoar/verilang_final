@@ -20,7 +20,7 @@ syntax SpaceDef = spaceDef: "defspace" Id name SpaceParent? parent "end";
 
 syntax SpaceParent = spaceParent: "\<" Id name;
 
-syntax OperatorDef = operatorDef: "defoperator" Id name ":" {Id "-\>"}+ typeSig AttributeList? attrs "end";
+syntax OperatorDef = operatorDef: "defoperator" Id name ":" {Type "-\>"}+ typeSig AttributeList? attrs "end";
 
 syntax VarDef = varDef: "defvar" {VarDecl ","}+ decls "end";
 
@@ -86,12 +86,20 @@ syntax Atom
   | atomInt: IntLiteral
   | atomFloat: FloatLiteral
   | atomChar: CharLiteral
+  | atomBool: BoolLiteral
+  | atomString: StringLiteral
   | paren: "(" LogicalExpression ")"
   ;
 
 syntax Application = app: "(" Id name LogicalExpression* args ")";
 
-syntax Type = tp: Id name;
+syntax Type 
+  = intType: "Int"
+  | boolType: "Bool"
+  | charType: "Char"
+  | stringType: "String"
+  | userType: Id name
+  ;
 
 syntax AttributeList = attrList: "[" Attribute+ attrs "]";
 
@@ -101,14 +109,19 @@ syntax AttributeValue = attrValue: ":" Id val;
 
 lexical Id = ([a-zA-Z][a-zA-Z0-9\-]* !>> [a-zA-Z0-9\-]) \ Reserved;
 
-lexical IntLiteral = [0-9][0-9]* !>> [0-9];
+lexical IntLiteral = [0-9]+ !>> [0-9];
 
-lexical FloatLiteral = [0-9][0-9]* "." [0-9][0-9]* !>> [0-9];
+lexical FloatLiteral = [0-9]+ "." [0-9]+ !>> [0-9];
 
 lexical CharLiteral = "\'" [a-zA-Z] "\'";
+
+lexical BoolLiteral = "true" | "false";
+
+lexical StringLiteral = "\"" ![\"]* "\"";
 
 keyword Reserved = 
   "defmodule" | "using" | "defspace" | "defoperator" | 
   "defexpression" | "defrule" | "defvar" | "end" | 
   "forall" | "exists" | "in" | "defer" | "neg" | 
-  "or" | "and";
+  "or" | "and" | "true" | "false" | 
+  "Int" | "Bool" | "Char" | "String";
