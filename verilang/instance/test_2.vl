@@ -1,6 +1,8 @@
 defmodule demo
-defvar x : Int, y : Bool, z : Char, s : String end
+defvar x : Int, b : Bool, c : Char, s : String end
 defoperator add : Int -> Int -> Int end
+defoperator eq : Bool -> Bool -> Bool end
 defexpression true and false end
 defexpression "hello" = "hello" end
+defexpression 'a' = 'b' end
 end

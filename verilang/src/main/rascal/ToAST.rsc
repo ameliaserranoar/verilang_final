@@ -67,10 +67,10 @@ private AST::SpaceParent toSpaceParent(Tree tree) {
 
 private AST::OperatorDef toOperatorDef(Tree tree) {
   switch (tree) {
-    case (OperatorDef) `defoperator <Id name> : <{Id "-\>"}+ typeSig> end`:
-      return AST::operatorNode(text(name), [AST::typeNode(text(tp)) | tp <- typeSig], []);
-    case (OperatorDef) `defoperator <Id name> : <{Id "-\>"}+ typeSig> <AttributeList attrs> end`:
-      return AST::operatorNode(text(name), [AST::typeNode(text(tp)) | tp <- typeSig], toAttributes(attrs));
+    case (OperatorDef) `defoperator <Id name> : <{Type "-\>"}+ typeSig> end`:
+      return AST::operatorNode(text(name), [toType(tp) | tp <- typeSig], []);
+    case (OperatorDef) `defoperator <Id name> : <{Type "-\>"}+ typeSig> <AttributeList attrs> end`:
+      return AST::operatorNode(text(name), [toType(tp) | tp <- typeSig], toAttributes(attrs));
     default:
       throw "Unsupported operator definition parse tree: <tree>";
   }
@@ -200,10 +200,12 @@ private AST::Application toApplication(Tree tree) {
 
 private AST::Type toType(Tree tree) {
   switch (tree) {
-    case (Type) `<Id name>`:
-      return AST::typeNode(text(name));
-    default:
-      throw "Unsupported type parse tree: <tree>";
+    case (Type) `Int`:    return AST::intType();
+    case (Type) `Bool`:   return AST::boolType();
+    case (Type) `Char`:   return AST::charType();
+    case (Type) `String`: return AST::stringType();
+    case (Type) `<Id name>`: return AST::userType(text(name));
+    default: throw "Unsupported type parse tree: <tree>";
   }
 }
 

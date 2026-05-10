@@ -88,6 +88,8 @@ data Literal
   = intLiteral(int intVal)
   | floatLiteral(real floatVal)
   | charLiteral(str charVal)
+  | boolLiteral(bool boolVal)
+  | stringLiteral(str stringVal)
   ;
 
 data Application
@@ -95,7 +97,11 @@ data Application
   ;
 
 data Type
-  = typeNode(str name)
+  = intType()
+  | boolType()
+  | charType()
+  | stringType()
+  | userType(str name)
   ;
 
 data Attribute
