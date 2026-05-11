@@ -318,31 +318,9 @@ private str typeName(AST::Type tp) {
 
 private bool sameType(AST::Type left, AST::Type right) = typeName(left) == typeName(right);
 
-private bool builtinType(AST::Type tp) {
-  switch (tp) {
-    case AST::intType(): return true;
-    case AST::boolType(): return true;
-    case AST::charType(): return true;
-    case AST::stringType(): return true;
-    default: return false;
-  }
-}
+private AST::Type unknownType() = AST::userType("__unknown__");
 
-private bool knownType(AST::Type tp, set[str] spaces) {
-  if (builtinType(tp)) return true;
-  if (AST::userType(name) := tp) return name in spaces;
-  return false;
-}
-
-private set[str] spacesOf(AST::Module m) {
-  set[str] spaces = {};
-  for (def <- m.defs) {
-    if (AST::spaceDefinition(AST::spaceNode(name, _)) := def) {
-      spaces += name;
-    }
-  }
-  return spaces;
-}
+private bool unknown(AST::Type tp) = sameType(tp, unknownType());
 
 private VarEnv varsOf(AST::Module m) {
   VarEnv vars = ();
@@ -366,24 +344,11 @@ private OpEnv opsOf(AST::Module m) {
   return ops;
 }
 
-private list[str] checkDeclaredTypes(AST::Definition def, set[str] spaces) {
+private list[str] checkOperatorShape(AST::Definition def) {
   list[str] errors = [];
   switch (def) {
-    case AST::spaceDefinition(AST::spaceNode(name, AST::spaceParentNode(parent))):
-      if (!(parent in spaces)) errors += "Undefined parent space <parent> in definition of space <name>";
-
-    case AST::varDefinition(AST::varNode(decls)):
-      for (AST::varDeclNode(name, tp) <- decls) {
-        if (!knownType(tp, spaces)) errors += "Undefined type or space <typeName(tp)> in variable <name>";
-      }
-
-    case AST::opDefinition(AST::operatorNode(name, sig, _)): {
+    case AST::opDefinition(AST::operatorNode(name, sig, _)):
       if (size(sig) < 2) errors += "Operator <name> must have at least one argument type and one result type";
-      for (tp <- sig) {
-        if (!knownType(tp, spaces)) errors += "Undefined type or space <typeName(tp)> in operator <name>";
-      }
-    }
-
     default: ;
   }
   return errors;
@@ -391,24 +356,23 @@ private list[str] checkDeclaredTypes(AST::Definition def, set[str] spaces) {
 
 private Check withBool(Check c, str context) {
   list[str] errors = c.errors;
-  if (!sameType(c.tp, AST::boolType())) {
+  if (!unknown(c.tp) && !sameType(c.tp, AST::boolType())) {
     errors += "Expected Bool in <context>, found <typeName(c.tp)>";
   }
   return checkResult(AST::boolType(), errors);
 }
 
 private list[str] requireBool(AST::Type tp, str context) {
-  return sameType(tp, AST::boolType())
+  return unknown(tp) || sameType(tp, AST::boolType())
     ? []
     : ["Expected Bool in <context>, found <typeName(tp)>"];
 }
 
-private Check typeOfApp(str name, list[AST::Expression] args, VarEnv vars, OpEnv ops, set[str] spaces) {
+private Check typeOfApp(str name, list[AST::Expression] args, VarEnv vars, OpEnv ops) {
   list[str] errors = [];
   if (!(name in ops)) {
-    errors += "Undefined operator: <name>";
-    for (arg <- args) errors += typeOf(arg, vars, ops, spaces).errors;
-    return checkResult(AST::boolType(), errors);
+    for (arg <- args) errors += typeOf(arg, vars, ops).errors;
+    return checkResult(unknownType(), errors);
   }
 
   list[AST::Type] sig = ops[name];
@@ -423,9 +387,9 @@ private Check typeOfApp(str name, list[AST::Expression] args, VarEnv vars, OpEnv
 
   int limit = size(args) < arity ? size(args) : arity;
   for (i <- [0 .. limit]) {
-    Check arg = typeOf(args[i], vars, ops, spaces);
+    Check arg = typeOf(args[i], vars, ops);
     errors += arg.errors;
-    if (arg.errors == [] && !sameType(arg.tp, sig[i])) {
+    if (arg.errors == [] && !unknown(arg.tp) && !sameType(arg.tp, sig[i])) {
       errors += "Argument <i + 1> of operator <name> expects <typeName(sig[i])>, found <typeName(arg.tp)>";
     }
   }
@@ -434,24 +398,24 @@ private Check typeOfApp(str name, list[AST::Expression] args, VarEnv vars, OpEnv
 }
 
 private Check typeOfComparison(AST::ComparisonOp op, AST::Expression lhs, AST::Expression rhs,
-    VarEnv vars, OpEnv ops, set[str] spaces) {
-  Check l = typeOf(lhs, vars, ops, spaces);
-  Check r = typeOf(rhs, vars, ops, spaces);
+    VarEnv vars, OpEnv ops) {
+  Check l = typeOf(lhs, vars, ops);
+  Check r = typeOf(rhs, vars, ops);
   list[str] errors = l.errors + r.errors;
 
   switch (op) {
     case AST::eqOp():
-      if (l.errors == [] && r.errors == [] && !sameType(l.tp, r.tp)) errors += "Equality requires operands of the same type, found <typeName(l.tp)> and <typeName(r.tp)>";
+      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) && !sameType(l.tp, r.tp)) errors += "Equality requires operands of the same type, found <typeName(l.tp)> and <typeName(r.tp)>";
     case AST::neqOp():
-      if (l.errors == [] && r.errors == [] && !sameType(l.tp, r.tp)) errors += "Inequality requires operands of the same type, found <typeName(l.tp)> and <typeName(r.tp)>";
+      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) && !sameType(l.tp, r.tp)) errors += "Inequality requires operands of the same type, found <typeName(l.tp)> and <typeName(r.tp)>";
     case AST::equivOp():
       errors += requireBool(l.tp, "equivalence") + requireBool(r.tp, "equivalence");
     case AST::implOp():
       errors += requireBool(l.tp, "implication") + requireBool(r.tp, "implication");
     case AST::inOp():
-      if (l.errors == [] && r.errors == [] && !sameType(l.tp, r.tp)) errors += "Membership requires matching element and domain types, found <typeName(l.tp)> and <typeName(r.tp)>";
+      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) && !sameType(l.tp, r.tp)) errors += "Membership requires matching element and domain types, found <typeName(l.tp)> and <typeName(r.tp)>";
     default:
-      if (l.errors == [] && r.errors == [] && (!sameType(l.tp, AST::intType()) || !sameType(r.tp, AST::intType()))) {
+      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) && (!sameType(l.tp, AST::intType()) || !sameType(r.tp, AST::intType()))) {
         errors += "Ordering comparisons require Int operands, found <typeName(l.tp)> and <typeName(r.tp)>";
       }
   }
@@ -459,12 +423,12 @@ private Check typeOfComparison(AST::ComparisonOp op, AST::Expression lhs, AST::E
   return checkResult(AST::boolType(), errors);
 }
 
-private Check typeOf(AST::Expression expr, VarEnv vars, OpEnv ops, set[str] spaces) {
+private Check typeOf(AST::Expression expr, VarEnv vars, OpEnv ops) {
   switch (expr) {
     case AST::identifier(name):
       return name in vars
         ? checkResult(vars[name], [])
-        : checkResult(AST::boolType(), ["Undefined variable: <name>"]);
+        : checkResult(unknownType(), []);
 
     case AST::literal(AST::intLiteral(_)): return checkResult(AST::intType(), []);
     case AST::literal(AST::boolLiteral(_)): return checkResult(AST::boolType(), []);
@@ -474,48 +438,47 @@ private Check typeOf(AST::Expression expr, VarEnv vars, OpEnv ops, set[str] spac
       return checkResult(AST::intType(), ["Float literals are not part of the declared VeriLang type system"]);
 
     case AST::applicationExpr(AST::applicationNode(name, args)):
-      return typeOfApp(name, args, vars, ops, spaces);
+      return typeOfApp(name, args, vars, ops);
 
     case AST::negation(e):
-      return withBool(typeOf(e, vars, ops, spaces), "negation");
+      return withBool(typeOf(e, vars, ops), "negation");
 
     case AST::disjunction(lhs, rhs):
       return checkResult(AST::boolType(),
-        withBool(typeOf(lhs, vars, ops, spaces), "disjunction").errors +
-        withBool(typeOf(rhs, vars, ops, spaces), "disjunction").errors);
+        withBool(typeOf(lhs, vars, ops), "disjunction").errors +
+        withBool(typeOf(rhs, vars, ops), "disjunction").errors);
 
     case AST::conjunction(lhs, rhs):
       return checkResult(AST::boolType(),
-        withBool(typeOf(lhs, vars, ops, spaces), "conjunction").errors +
-        withBool(typeOf(rhs, vars, ops, spaces), "conjunction").errors);
+        withBool(typeOf(lhs, vars, ops), "conjunction").errors +
+        withBool(typeOf(rhs, vars, ops), "conjunction").errors);
 
     case AST::comparison(op, lhs, rhs):
-      return typeOfComparison(op, lhs, rhs, vars, ops, spaces);
+      return typeOfComparison(op, lhs, rhs, vars, ops);
 
     case AST::arithmetic(_, lhs, rhs): {
-      Check l = typeOf(lhs, vars, ops, spaces);
-      Check r = typeOf(rhs, vars, ops, spaces);
+      Check l = typeOf(lhs, vars, ops);
+      Check r = typeOf(rhs, vars, ops);
       list[str] errors = l.errors + r.errors;
-      if (l.errors == [] && r.errors == [] && (!sameType(l.tp, AST::intType()) || !sameType(r.tp, AST::intType()))) {
+      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) && (!sameType(l.tp, AST::intType()) || !sameType(r.tp, AST::intType()))) {
         errors += "Arithmetic operators require Int operands, found <typeName(l.tp)> and <typeName(r.tp)>";
       }
       return checkResult(AST::intType(), errors);
     }
 
     case AST::power(lhs, rhs): {
-      Check l = typeOf(lhs, vars, ops, spaces);
-      Check r = typeOf(rhs, vars, ops, spaces);
+      Check l = typeOf(lhs, vars, ops);
+      Check r = typeOf(rhs, vars, ops);
       list[str] errors = l.errors + r.errors;
-      if (l.errors == [] && !sameType(l.tp, AST::intType())) errors += "Power base must be Int, found <typeName(l.tp)>";
-      if (r.errors == [] && !sameType(r.tp, AST::intType())) errors += "Power exponent must be Int, found <typeName(r.tp)>";
+      if (l.errors == [] && !unknown(l.tp) && !sameType(l.tp, AST::intType())) errors += "Power base must be Int, found <typeName(l.tp)>";
+      if (r.errors == [] && !unknown(r.tp) && !sameType(r.tp, AST::intType())) errors += "Power exponent must be Int, found <typeName(r.tp)>";
       return checkResult(AST::intType(), errors);
     }
 
     case AST::quantified(_, var, domain, body): {
-      list[str] errors = domain in spaces ? [] : ["Undefined quantifier domain <domain>"];
       VarEnv scopedVars = vars;
       scopedVars[var] = AST::userType(domain);
-      errors += withBool(typeOf(body, scopedVars, ops, spaces), "quantifier body").errors;
+      list[str] errors = withBool(typeOf(body, scopedVars, ops), "quantifier body").errors;
       return checkResult(AST::boolType(), errors);
     }
 
@@ -524,12 +487,12 @@ private Check typeOf(AST::Expression expr, VarEnv vars, OpEnv ops, set[str] spac
   }
 }
 
-private list[str] checkRule(AST::RuleDef rule, VarEnv vars, OpEnv ops, set[str] spaces) {
-  Check lhs = typeOfApp(rule.lhs.name, rule.lhs.args, vars, ops, spaces);
-  Check rhs = typeOfApp(rule.rhs.name, rule.rhs.args, vars, ops, spaces);
+private list[str] checkRule(AST::RuleDef rule, VarEnv vars, OpEnv ops) {
+  Check lhs = typeOfApp(rule.lhs.name, rule.lhs.args, vars, ops);
+  Check rhs = typeOfApp(rule.rhs.name, rule.rhs.args, vars, ops);
   list[str] errors = lhs.errors + rhs.errors;
 
-  if ((rule.lhs.name in ops) && (rule.rhs.name in ops) && !sameType(lhs.tp, rhs.tp)) {
+  if ((rule.lhs.name in ops) && (rule.rhs.name in ops) && !unknown(lhs.tp) && !unknown(rhs.tp) && !sameType(lhs.tp, rhs.tp)) {
     errors += "Rule result types must match, found <typeName(lhs.tp)> and <typeName(rhs.tp)>";
   }
 
@@ -537,18 +500,17 @@ private list[str] checkRule(AST::RuleDef rule, VarEnv vars, OpEnv ops, set[str] 
 }
 
 public list[str] check(AST::Module m) {
-  set[str] spaces = spacesOf(m);
   VarEnv vars = varsOf(m);
   OpEnv ops = opsOf(m);
 
   list[str] errors = [];
   for (def <- m.defs) {
-    errors += checkDeclaredTypes(def, spaces);
+    errors += checkOperatorShape(def);
     switch (def) {
       case AST::ruleDefinition(rule):
-        errors += checkRule(rule, vars, ops, spaces);
+        errors += checkRule(rule, vars, ops);
       case AST::expressionDefinition(AST::expressionNode(expr, _)):
-        errors += typeOf(expr, vars, ops, spaces).errors;
+        errors += typeOf(expr, vars, ops).errors;
       default: ;
     }
   }
