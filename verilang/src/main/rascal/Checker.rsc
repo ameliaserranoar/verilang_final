@@ -2,11 +2,309 @@ module Checker
 
 import AST;
 import List;
+import Message;
+import ParseTree;
+import Syntax;
+
+extend analysis::typepal::TypePal;
+
+data AType
+  = vlType(str name)
+  ;
+
+data IdRole
+  = spaceId()
+  | operatorId()
+  ;
+
+str prettyAType(vlType(name)) = name;
 
 alias VarEnv = map[str, AST::Type];
 alias OpEnv = map[str, list[AST::Type]];
 
 data Check = checkResult(AST::Type tp, list[str] errors);
+
+void collect(current: (Module) `defmodule <Id name> <Definition* defs> end`, Collector c) {
+  c.enterScope(current);
+  collect(defs, c);
+  c.leaveScope(current);
+}
+
+void collect(current: (Definition) `<Using usingDecl>`, Collector c) {
+  collect(usingDecl, c);
+}
+
+void collect(current: (Definition) `<SpaceDef spaceDecl>`, Collector c) {
+  collect(spaceDecl, c);
+}
+
+void collect(current: (Definition) `<OperatorDef operatorDecl>`, Collector c) {
+  collect(operatorDecl, c);
+}
+
+void collect(current: (Definition) `<VarDef varDecl>`, Collector c) {
+  collect(varDecl, c);
+}
+
+void collect(current: (Definition) `<RuleDef ruleDecl>`, Collector c) {
+  collect(ruleDecl, c);
+}
+
+void collect(current: (Definition) `<ExpressionDef exprDecl>`, Collector c) {
+  collect(exprDecl, c);
+}
+
+void collect(current: (Using) `using <Id name>`, Collector c) {
+}
+
+void collect(current: (AttributeList) `[<Attribute+ attrs>]`, Collector c) {
+  collect(attrs, c);
+}
+
+void collect(current: (Attribute) `<Id name>`, Collector c) {
+}
+
+void collect(current: (Attribute) `<Id name> <AttributeValue attrValue>`, Collector c) {
+  collect(attrValue, c);
+}
+
+void collect(current: (AttributeValue) `: <Id name>`, Collector c) {
+}
+
+void collect(current: (SpaceDef) `defspace <Id name> end`, Collector c) {
+  c.define("<name>", spaceId(), name, defType(vlType("<name>")));
+}
+
+void collect(current: (SpaceDef) `defspace <Id name> <SpaceParent parent> end`, Collector c) {
+  c.define("<name>", spaceId(), name, defType(vlType("<name>")));
+  collect(parent, c);
+}
+
+void collect(current: (SpaceParent) `\< <Id name>`, Collector c) {
+  c.use(name, {spaceId()});
+}
+
+void collect(current: (OperatorDef) `defoperator <Id name> : <{Type "-\>"}+ typeSig> end`, Collector c) {
+  c.define("<name>", operatorId(), name, defType(vlType("<name>")));
+  collect(typeSig, c);
+}
+
+void collect(current: (OperatorDef) `defoperator <Id name> : <{Type "-\>"}+ typeSig> <AttributeList attrs> end`, Collector c) {
+  c.define("<name>", operatorId(), name, defType(vlType("<name>")));
+  collect(typeSig, c);
+  collect(attrs, c);
+}
+
+void collect(current: (VarDef) `defvar <{VarDecl ","}+ decls> end`, Collector c) {
+  collect(decls, c);
+}
+
+void collect(current: (VarDecl) `<Id name> : <Type tp>`, Collector c) {
+  c.define("<name>", variableId(), name, defType(tp));
+  collect(tp, c);
+}
+
+void collect(current: (Type) `Int`, Collector c) {
+  c.fact(current, vlType("Int"));
+}
+
+void collect(current: (Type) `Bool`, Collector c) {
+  c.fact(current, vlType("Bool"));
+}
+
+void collect(current: (Type) `Char`, Collector c) {
+  c.fact(current, vlType("Char"));
+}
+
+void collect(current: (Type) `String`, Collector c) {
+  c.fact(current, vlType("String"));
+}
+
+void collect(current: (Type) `<Id name>`, Collector c) {
+  c.use(name, {spaceId()});
+  c.fact(current, vlType("<name>"));
+}
+
+void collect(current: (RuleDef) `defrule <Application lhs> -\> <Application rhs> end`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (ExpressionDef) `defexpression <LogicalExpression expr> end`, Collector c) {
+  collect(expr, c);
+}
+
+void collect(current: (ExpressionDef) `defexpression <LogicalExpression expr> <AttributeList attrs> end`, Collector c) {
+  collect(expr, c);
+  collect(attrs, c);
+}
+
+void collect(current: (LogicalExpression) `<OrExpr expr>`, Collector c) {
+  collect(expr, c);
+}
+
+void collect(current: (OrExpr) `<AndExpr expr>`, Collector c) {
+  collect(expr, c);
+}
+
+void collect(current: (OrExpr) `<OrExpr lhs> or <AndExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (AndExpr) `<EqExpr expr>`, Collector c) {
+  collect(expr, c);
+}
+
+void collect(current: (AndExpr) `<AndExpr lhs> and <EqExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (EqExpr) `<AddExpr expr>`, Collector c) {
+  collect(expr, c);
+}
+
+void collect(current: (EqExpr) `<EqExpr lhs> = <AddExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (EqExpr) `<EqExpr lhs> \<\> <AddExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (EqExpr) `<EqExpr lhs> \< <AddExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (EqExpr) `<EqExpr lhs> \> <AddExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (EqExpr) `<EqExpr lhs> \<= <AddExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (EqExpr) `<EqExpr lhs> \>= <AddExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (EqExpr) `<EqExpr lhs> ≡ <AddExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (EqExpr) `<EqExpr lhs> =\> <AddExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (EqExpr) `<EqExpr lhs> in <AddExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (AddExpr) `<MultExpr expr>`, Collector c) {
+  collect(expr, c);
+}
+
+void collect(current: (AddExpr) `<AddExpr lhs> + <MultExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (AddExpr) `<AddExpr lhs> - <MultExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (MultExpr) `<PowExpr expr>`, Collector c) {
+  collect(expr, c);
+}
+
+void collect(current: (MultExpr) `<MultExpr lhs> * <PowExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (MultExpr) `<MultExpr lhs> / <PowExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (MultExpr) `<MultExpr lhs> % <PowExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (PowExpr) `<UnaryExpr expr>`, Collector c) {
+  collect(expr, c);
+}
+
+void collect(current: (PowExpr) `<PowExpr lhs> ** <UnaryExpr rhs>`, Collector c) {
+  collect(lhs, c);
+  collect(rhs, c);
+}
+
+void collect(current: (UnaryExpr) `<Atom atom>`, Collector c) {
+  collect(atom, c);
+}
+
+void collect(current: (UnaryExpr) `neg <Atom atom>`, Collector c) {
+  collect(atom, c);
+}
+
+void collect(current: (UnaryExpr) `forall <Id var> in <Id domain> . <LogicalExpression body>`, Collector c) {
+  c.use(domain, {spaceId()});
+  c.enterScope(current);
+  c.define("<var>", variableId(), var, defType(vlType("<domain>")));
+  collect(body, c);
+  c.leaveScope(current);
+}
+
+void collect(current: (UnaryExpr) `exists <Id var> in <Id domain> . <LogicalExpression body>`, Collector c) {
+  c.use(domain, {spaceId()});
+  c.enterScope(current);
+  c.define("<var>", variableId(), var, defType(vlType("<domain>")));
+  collect(body, c);
+  c.leaveScope(current);
+}
+
+void collect(current: (Atom) `<Id name>`, Collector c) {
+  c.use(name, {variableId()});
+}
+
+void collect(current: (Atom) `<Application app>`, Collector c) {
+  collect(app, c);
+}
+
+void collect(current: (Atom) `(<LogicalExpression expr>)`, Collector c) {
+  collect(expr, c);
+}
+
+void collect(current: (Application) `(<Id name> <LogicalExpression* args>)`, Collector c) {
+  c.use(name, {operatorId()});
+  collect(args, c);
+}
+
+private str messageText(Message msg) {
+  switch (msg) {
+    case error(m, _): return m;
+    case warning(m, _): return "Warning: <m>";
+    case info(m, _): return "Info: <m>";
+    default: return "<msg>";
+  }
+}
+
+private list[str] typePalCheck(Tree tree) {
+  return [messageText(msg) | msg <- getMessages(collectAndSolve(tree))];
+}
 
 private str typeName(AST::Type tp) {
   switch (tp) {
@@ -255,4 +553,8 @@ public list[str] check(AST::Module m) {
     }
   }
   return errors;
+}
+
+public list[str] check(Tree tree, AST::Module m) {
+  return typePalCheck(tree) + check(m);
 }

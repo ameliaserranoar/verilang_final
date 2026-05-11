@@ -52,7 +52,7 @@ public int main(list[str] args) {
     println(ast);
     println("");
     println("Validation errors:");
-    list[str] errors = Checker::check(ast);
+    list[str] errors = Checker::check(tree, ast);
     if (errors == []) {
       println("No errors found.");
     } else {
