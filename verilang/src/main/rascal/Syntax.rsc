@@ -95,6 +95,7 @@ syntax Application = app: "(" Id name LogicalExpression* args ")";
 
 syntax Type 
   = intType: "Int"
+  | floatType: "Float"
   | boolType: "Bool"
   | charType: "Char"
   | stringType: "String"
@@ -124,4 +125,4 @@ keyword Reserved =
   "defexpression" | "defrule" | "defvar" | "end" | 
   "forall" | "exists" | "in" | "defer" | "neg" | 
   "or" | "and" | "true" | "false" | 
-  "Int" | "Bool" | "Char" | "String";
+  "Int" | "Float" | "Bool" | "Char" | "String";

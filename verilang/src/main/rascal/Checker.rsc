@@ -5,6 +5,7 @@ import List;
 import Message;
 import ParseTree;
 import Syntax;
+import String;
 
 extend analysis::typepal::TypePal;
 
@@ -23,6 +24,8 @@ alias VarEnv = map[str, AST::Type];
 alias OpEnv = map[str, list[AST::Type]];
 
 data Check = checkResult(AST::Type tp, list[str] errors);
+
+private str text(Tree tree) = trim(unparse(tree));
 
 void collect(current: (Module) `defmodule <Id name> <Definition* defs> end`, Collector c) {
   c.enterScope(current);
@@ -72,11 +75,11 @@ void collect(current: (AttributeValue) `: <Id name>`, Collector c) {
 }
 
 void collect(current: (SpaceDef) `defspace <Id name> end`, Collector c) {
-  c.define("<name>", spaceId(), name, defType(vlType("<name>")));
+  c.define(text(name), spaceId(), name, defType(vlType(text(name))));
 }
 
 void collect(current: (SpaceDef) `defspace <Id name> <SpaceParent parent> end`, Collector c) {
-  c.define("<name>", spaceId(), name, defType(vlType("<name>")));
+  c.define(text(name), spaceId(), name, defType(vlType(text(name))));
   collect(parent, c);
 }
 
@@ -85,12 +88,12 @@ void collect(current: (SpaceParent) `\< <Id name>`, Collector c) {
 }
 
 void collect(current: (OperatorDef) `defoperator <Id name> : <{Type "-\>"}+ typeSig> end`, Collector c) {
-  c.define("<name>", operatorId(), name, defType(vlType("<name>")));
+  c.define(text(name), operatorId(), name, defType(vlType(text(name))));
   collect(typeSig, c);
 }
 
 void collect(current: (OperatorDef) `defoperator <Id name> : <{Type "-\>"}+ typeSig> <AttributeList attrs> end`, Collector c) {
-  c.define("<name>", operatorId(), name, defType(vlType("<name>")));
+  c.define(text(name), operatorId(), name, defType(vlType(text(name))));
   collect(typeSig, c);
   collect(attrs, c);
 }
@@ -100,12 +103,16 @@ void collect(current: (VarDef) `defvar <{VarDecl ","}+ decls> end`, Collector c)
 }
 
 void collect(current: (VarDecl) `<Id name> : <Type tp>`, Collector c) {
-  c.define("<name>", variableId(), name, defType(tp));
+  c.define(text(name), variableId(), name, defType(tp));
   collect(tp, c);
 }
 
 void collect(current: (Type) `Int`, Collector c) {
   c.fact(current, vlType("Int"));
+}
+
+void collect(current: (Type) `Float`, Collector c) {
+  c.fact(current, vlType("Float"));
 }
 
 void collect(current: (Type) `Bool`, Collector c) {
@@ -122,7 +129,7 @@ void collect(current: (Type) `String`, Collector c) {
 
 void collect(current: (Type) `<Id name>`, Collector c) {
   c.use(name, {spaceId()});
-  c.fact(current, vlType("<name>"));
+  c.fact(current, vlType(text(name)));
 }
 
 void collect(current: (RuleDef) `defrule <Application lhs> -\> <Application rhs> end`, Collector c) {
@@ -263,7 +270,7 @@ void collect(current: (UnaryExpr) `neg <Atom atom>`, Collector c) {
 void collect(current: (UnaryExpr) `forall <Id var> in <Id domain> . <LogicalExpression body>`, Collector c) {
   c.use(domain, {spaceId()});
   c.enterScope(current);
-  c.define("<var>", variableId(), var, defType(vlType("<domain>")));
+  c.define(text(var), variableId(), var, defType(vlType(text(domain))));
   collect(body, c);
   c.leaveScope(current);
 }
@@ -271,7 +278,7 @@ void collect(current: (UnaryExpr) `forall <Id var> in <Id domain> . <LogicalExpr
 void collect(current: (UnaryExpr) `exists <Id var> in <Id domain> . <LogicalExpression body>`, Collector c) {
   c.use(domain, {spaceId()});
   c.enterScope(current);
-  c.define("<var>", variableId(), var, defType(vlType("<domain>")));
+  c.define(text(var), variableId(), var, defType(vlType(text(domain))));
   collect(body, c);
   c.leaveScope(current);
 }
@@ -282,6 +289,21 @@ void collect(current: (Atom) `<Id name>`, Collector c) {
 
 void collect(current: (Atom) `<Application app>`, Collector c) {
   collect(app, c);
+}
+
+void collect(current: (Atom) `<IntLiteral val>`, Collector c) {
+}
+
+void collect(current: (Atom) `<FloatLiteral val>`, Collector c) {
+}
+
+void collect(current: (Atom) `<CharLiteral val>`, Collector c) {
+}
+
+void collect(current: (Atom) `<BoolLiteral val>`, Collector c) {
+}
+
+void collect(current: (Atom) `<StringLiteral val>`, Collector c) {
 }
 
 void collect(current: (Atom) `(<LogicalExpression expr>)`, Collector c) {
@@ -309,6 +331,7 @@ private list[str] typePalCheck(Tree tree) {
 private str typeName(AST::Type tp) {
   switch (tp) {
     case AST::intType(): return "Int";
+    case AST::floatType(): return "Float";
     case AST::boolType(): return "Bool";
     case AST::charType(): return "Char";
     case AST::stringType(): return "String";
@@ -413,10 +436,18 @@ private Check typeOfComparison(AST::ComparisonOp op, AST::Expression lhs, AST::E
     case AST::implOp():
       errors += requireBool(l.tp, "implication") + requireBool(r.tp, "implication");
     case AST::inOp():
-      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) && !sameType(l.tp, r.tp)) errors += "Membership requires matching element and domain types, found <typeName(l.tp)> and <typeName(r.tp)>";
+      if (AST::identifier(domain) := rhs) {
+        if (l.errors == [] && !unknown(l.tp) && typeName(l.tp) != domain) {
+          errors += "Membership requires left operand of type <domain>, found <typeName(l.tp)>";
+        }
+      } else if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) && !sameType(l.tp, r.tp)) {
+        errors += "Membership requires matching element and domain types, found <typeName(l.tp)> and <typeName(r.tp)>";
+      }
     default:
-      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) && (!sameType(l.tp, AST::intType()) || !sameType(r.tp, AST::intType()))) {
-        errors += "Ordering comparisons require Int operands, found <typeName(l.tp)> and <typeName(r.tp)>";
+      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) &&
+          !((sameType(l.tp, AST::intType()) && sameType(r.tp, AST::intType())) ||
+            (sameType(l.tp, AST::floatType()) && sameType(r.tp, AST::floatType())))) {
+        errors += "Ordering comparisons require Int or Float operands, found <typeName(l.tp)> and <typeName(r.tp)>";
       }
   }
 
@@ -431,11 +462,10 @@ private Check typeOf(AST::Expression expr, VarEnv vars, OpEnv ops) {
         : checkResult(unknownType(), []);
 
     case AST::literal(AST::intLiteral(_)): return checkResult(AST::intType(), []);
+    case AST::literal(AST::floatLiteral(_)): return checkResult(AST::floatType(), []);
     case AST::literal(AST::boolLiteral(_)): return checkResult(AST::boolType(), []);
     case AST::literal(AST::charLiteral(_)): return checkResult(AST::charType(), []);
     case AST::literal(AST::stringLiteral(_)): return checkResult(AST::stringType(), []);
-    case AST::literal(AST::floatLiteral(_)):
-      return checkResult(AST::intType(), ["Float literals are not part of the declared VeriLang type system"]);
 
     case AST::applicationExpr(AST::applicationNode(name, args)):
       return typeOfApp(name, args, vars, ops);
@@ -456,14 +486,21 @@ private Check typeOf(AST::Expression expr, VarEnv vars, OpEnv ops) {
     case AST::comparison(op, lhs, rhs):
       return typeOfComparison(op, lhs, rhs, vars, ops);
 
-    case AST::arithmetic(_, lhs, rhs): {
+    case AST::arithmetic(arithOp, lhs, rhs): {
       Check l = typeOf(lhs, vars, ops);
       Check r = typeOf(rhs, vars, ops);
       list[str] errors = l.errors + r.errors;
-      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp) && (!sameType(l.tp, AST::intType()) || !sameType(r.tp, AST::intType()))) {
-        errors += "Arithmetic operators require Int operands, found <typeName(l.tp)> and <typeName(r.tp)>";
+      if (l.errors == [] && r.errors == [] && !unknown(l.tp) && !unknown(r.tp)) {
+        if (arithOp == AST::modOp()) {
+          if (!sameType(l.tp, AST::intType()) || !sameType(r.tp, AST::intType())) {
+            errors += "Modulo requires Int operands, found <typeName(l.tp)> and <typeName(r.tp)>";
+          }
+        } else if (!((sameType(l.tp, AST::intType()) && sameType(r.tp, AST::intType())) ||
+                     (sameType(l.tp, AST::floatType()) && sameType(r.tp, AST::floatType())))) {
+          errors += "Arithmetic operators require matching Int or Float operands, found <typeName(l.tp)> and <typeName(r.tp)>";
+        }
       }
-      return checkResult(AST::intType(), errors);
+      return checkResult(sameType(l.tp, AST::floatType()) ? AST::floatType() : AST::intType(), errors);
     }
 
     case AST::power(lhs, rhs): {

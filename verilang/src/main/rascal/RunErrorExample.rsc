@@ -11,7 +11,7 @@ public void main(list[str] args) {
   str code = readFile(input);
   Tree tree = parse(#start[Module], code, input).top;
   AST::Module ast = toAST(tree);
-  errors = Checker::check(ast);
+  errors = Checker::check(tree, ast);
   if (errors == []) println("No errors");
   else for (e <- errors) println("  <e>");
 }

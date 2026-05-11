@@ -26,6 +26,15 @@ public Val evalComparison(AST::ComparisonOp op, Val l, Val r) {
           default: throw "Unsupported comparison";
         }
       }
+      if (floatVal(lf) := l, floatVal(rf) := r) {
+        switch (op) {
+          case AST::ltOp(): return boolVal(lf < rf);
+          case AST::gtOp(): return boolVal(lf > rf);
+          case AST::lteOp(): return boolVal(lf <= rf);
+          case AST::gteOp(): return boolVal(lf >= rf);
+          default: throw "Unsupported comparison";
+        }
+      }
       throw "Type error in comparison";
     }
   }

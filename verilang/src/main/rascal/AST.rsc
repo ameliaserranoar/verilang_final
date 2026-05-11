@@ -98,6 +98,7 @@ data Application
 
 data Type
   = intType()
+  | floatType()
   | boolType()
   | charType()
   | stringType()

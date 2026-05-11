@@ -205,6 +205,7 @@ private AST::Application toApplication(Tree tree) {
 private AST::Type toType(Tree tree) {
   switch (tree) {
     case (Type) `Int`:    return AST::intType();
+    case (Type) `Float`:  return AST::floatType();
     case (Type) `Bool`:   return AST::boolType();
     case (Type) `Char`:   return AST::charType();
     case (Type) `String`: return AST::stringType();
