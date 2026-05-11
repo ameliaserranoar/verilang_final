@@ -16,6 +16,7 @@ data AType
 data IdRole
   = spaceId()
   | operatorId()
+  | variableId()
   ;
 
 str prettyAType(vlType(name)) = name;
