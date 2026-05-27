@@ -7,6 +7,8 @@ data Module
 data Definition
   = usingDefinition(Using usingDecl)
   | spaceDefinition(SpaceDef spaceDecl)
+  | structDefinition(StructDef structDecl)
+  | dataDefinition(DataDef dataDecl)
   | opDefinition(OperatorDef operatorDecl)
   | varDefinition(VarDef varDecl)
   | ruleDefinition(RuleDef ruleDecl)
@@ -24,6 +26,22 @@ data SpaceDef
 data SpaceParent
   = noSpaceParent()
   | spaceParentNode(str name)
+  ;
+
+data StructDef
+  = structNode(str name, list[StructField] fields)
+  ;
+
+data StructField
+  = structFieldNode(str name, Type tp)
+  ;
+
+data DataDef
+  = dataNode(str name, list[DataVariant] variants)
+  ;
+
+data DataVariant
+  = dataVariantNode(str name, list[Type] args)
   ;
 
 data OperatorDef

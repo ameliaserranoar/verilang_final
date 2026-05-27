@@ -1,5 +1,13 @@
 defmodule errortest
 defspace nat end
+defstruct bad-struct
+field : missing-struct-type
+field : nat
+end
+defdata bad-data
+bad-constructor : missing-constructor-type
+bad-constructor
+end
 defoperator plus : nat -> nat -> nat end
 defoperator leq : nat -> nat -> Bool end
 defvar x : nat end

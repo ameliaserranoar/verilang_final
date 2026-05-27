@@ -42,6 +42,14 @@ void collect(current: (Definition) `<SpaceDef spaceDecl>`, Collector c) {
   collect(spaceDecl, c);
 }
 
+void collect(current: (Definition) `<StructDef structDecl>`, Collector c) {
+  collect(structDecl, c);
+}
+
+void collect(current: (Definition) `<DataDef dataDecl>`, Collector c) {
+  collect(dataDecl, c);
+}
+
 void collect(current: (Definition) `<OperatorDef operatorDecl>`, Collector c) {
   collect(operatorDecl, c);
 }
@@ -86,6 +94,34 @@ void collect(current: (SpaceDef) `defspace <Id name> <SpaceParent parent> end`, 
 
 void collect(current: (SpaceParent) `\< <Id name>`, Collector c) {
   c.use(name, {spaceId()});
+}
+
+void collect(current: (StructDef) `defstruct <Id name> <StructField* fields> end`, Collector c) {
+  c.define(text(name), spaceId(), name, defType(vlType(text(name))));
+  collect(fields, c);
+}
+
+void collect(current: (StructField) `<Id name> : <Type tp>`, Collector c) {
+  collect(tp, c);
+}
+
+void collect(current: (DataDef) `defdata <Id name> <DataVariant* variants> end`, Collector c) {
+  c.define(text(name), spaceId(), name, defType(vlType(text(name))));
+  for (variant <- variants) {
+    switch (variant) {
+      case (DataVariant) `<Id variantName>`:
+        c.define(text(variantName), operatorId(), variantName, defType(vlType(text(name))));
+      case (DataVariant) `<Id variantName> <DataVariantSignature sig>`: {
+        c.define(text(variantName), operatorId(), variantName, defType(vlType(text(name))));
+        collect(sig, c);
+      }
+      default: ;
+    }
+  }
+}
+
+void collect(current: (DataVariantSignature) `: <{Type "-\>"}+ typeSig>`, Collector c) {
+  collect(typeSig, c);
 }
 
 void collect(current: (OperatorDef) `defoperator <Id name> : <{Type "-\>"}+ typeSig> end`, Collector c) {
@@ -346,6 +382,24 @@ private AST::Type unknownType() = AST::userType("__unknown__");
 
 private bool unknown(AST::Type tp) = sameType(tp, unknownType());
 
+private set[str] primitiveTypes() = {"Int", "Float", "Bool", "Char", "String"};
+
+private set[str] typeNamesOf(AST::Module m) {
+  set[str] types = primitiveTypes();
+  for (def <- m.defs) {
+    switch (def) {
+      case AST::spaceDefinition(AST::spaceNode(name, _)):
+        types += name;
+      case AST::structDefinition(AST::structNode(name, _)):
+        types += name;
+      case AST::dataDefinition(AST::dataNode(name, _)):
+        types += name;
+      default: ;
+    }
+  }
+  return types;
+}
+
 private VarEnv varsOf(AST::Module m) {
   VarEnv vars = ();
   for (def <- m.defs) {
@@ -361,11 +415,111 @@ private VarEnv varsOf(AST::Module m) {
 private OpEnv opsOf(AST::Module m) {
   OpEnv ops = ();
   for (def <- m.defs) {
-    if (AST::opDefinition(AST::operatorNode(name, sig, _)) := def) {
-      ops[name] = sig;
+    switch (def) {
+      case AST::opDefinition(AST::operatorNode(name, sig, _)):
+        ops[name] = sig;
+      case AST::dataDefinition(AST::dataNode(dataName, variants)):
+        for (AST::dataVariantNode(variantName, args) <- variants) {
+          ops[variantName] = args + [AST::userType(dataName)];
+        }
+      default: ;
     }
   }
   return ops;
+}
+
+private list[str] duplicateErrors(list[str] names, str kind) {
+  list[str] errors = [];
+  set[str] seen = {};
+  set[str] reported = {};
+  for (name <- names) {
+    if (name in seen && !(name in reported)) {
+      errors += "Duplicate <kind> <name>";
+      reported += name;
+    }
+    seen += name;
+  }
+  return errors;
+}
+
+private list[str] checkTypeExists(AST::Type tp, set[str] types, str context) {
+  str name = typeName(tp);
+  return name in types ? [] : ["Unknown type <name> in <context>"];
+}
+
+private list[str] checkStruct(AST::StructDef st, set[str] types) {
+  list[str] errors = duplicateErrors([field.name | field <- st.fields], "field in struct <st.name>");
+  for (AST::structFieldNode(fieldName, tp) <- st.fields) {
+    errors += checkTypeExists(tp, types, "field <st.name>.<fieldName>");
+  }
+  return errors;
+}
+
+private list[str] checkData(AST::DataDef data, set[str] types) {
+  list[str] errors = duplicateErrors([variant.name | variant <- data.variants], "variant in data <data.name>");
+  for (AST::dataVariantNode(variantName, args) <- data.variants) {
+    for (arg <- args) {
+      errors += checkTypeExists(arg, types, "variant <data.name>.<variantName>");
+    }
+  }
+  return errors;
+}
+
+private list[str] checkVarDecls(AST::VarDef vars, set[str] types) {
+  list[str] errors = [];
+  for (AST::varDeclNode(name, tp) <- vars.decls) {
+    errors += checkTypeExists(tp, types, "variable <name>");
+  }
+  return errors;
+}
+
+private list[str] checkOperatorTypes(AST::OperatorDef op, set[str] types) {
+  list[str] errors = [];
+  for (tp <- op.typeSig) {
+    errors += checkTypeExists(tp, types, "operator <op.name>");
+  }
+  return errors;
+}
+
+private list[str] checkSpaceParent(AST::SpaceDef sp, set[str] types) {
+  switch (sp.parent) {
+    case AST::spaceParentNode(parent):
+      return parent in types ? [] : ["Unknown parent space <parent> in space <sp.name>"];
+    default:
+      return [];
+  }
+}
+
+private list[str] declaredTypeNames(AST::Module m) {
+  list[str] names = [];
+  for (def <- m.defs) {
+    switch (def) {
+      case AST::spaceDefinition(AST::spaceNode(name, _)):
+        names += name;
+      case AST::structDefinition(AST::structNode(name, _)):
+        names += name;
+      case AST::dataDefinition(AST::dataNode(name, _)):
+        names += name;
+      default: ;
+    }
+  }
+  return names;
+}
+
+private list[str] declaredOperatorNames(AST::Module m) {
+  list[str] names = [];
+  for (def <- m.defs) {
+    switch (def) {
+      case AST::opDefinition(AST::operatorNode(name, _, _)):
+        names += name;
+      case AST::dataDefinition(AST::dataNode(_, variants)):
+        for (AST::dataVariantNode(variantName, _) <- variants) {
+          names += variantName;
+        }
+      default: ;
+    }
+  }
+  return names;
 }
 
 private list[str] checkOperatorShape(AST::Definition def) {
@@ -540,11 +694,25 @@ private list[str] checkRule(AST::RuleDef rule, VarEnv vars, OpEnv ops) {
 public list[str] check(AST::Module m) {
   VarEnv vars = varsOf(m);
   OpEnv ops = opsOf(m);
+  set[str] types = typeNamesOf(m);
 
   list[str] errors = [];
+  errors += duplicateErrors(declaredTypeNames(m), "type");
+  errors += duplicateErrors(declaredOperatorNames(m), "operator or data constructor");
+
   for (def <- m.defs) {
     errors += checkOperatorShape(def);
     switch (def) {
+      case AST::spaceDefinition(space):
+        errors += checkSpaceParent(space, types);
+      case AST::structDefinition(st):
+        errors += checkStruct(st, types);
+      case AST::dataDefinition(data):
+        errors += checkData(data, types);
+      case AST::opDefinition(op):
+        errors += checkOperatorTypes(op, types);
+      case AST::varDefinition(varDef):
+        errors += checkVarDecls(varDef, types);
       case AST::ruleDefinition(rule):
         errors += checkRule(rule, vars, ops);
       case AST::expressionDefinition(AST::expressionNode(expr, _)):

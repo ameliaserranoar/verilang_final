@@ -23,6 +23,10 @@ private AST::Definition toDefinition(Tree tree) {
       return AST::usingDefinition(toUsing(usingDecl));
     case (Definition) `<SpaceDef spaceDecl>`:
       return AST::spaceDefinition(toSpaceDef(spaceDecl));
+    case (Definition) `<StructDef structDecl>`:
+      return AST::structDefinition(toStructDef(structDecl));
+    case (Definition) `<DataDef dataDecl>`:
+      return AST::dataDefinition(toDataDef(dataDecl));
     case (Definition) `<OperatorDef operatorDecl>`:
       return AST::opDefinition(toOperatorDef(operatorDecl));
     case (Definition) `<VarDef varDecl>`:
@@ -62,6 +66,53 @@ private AST::SpaceParent toSpaceParent(Tree tree) {
       return AST::spaceParentNode(text(name));
     default:
       throw "Unsupported space parent parse tree: <tree>";
+  }
+}
+
+private AST::StructDef toStructDef(Tree tree) {
+  switch (tree) {
+    case (StructDef) `defstruct <Id name> <StructField* fields> end`:
+      return AST::structNode(text(name), [toStructField(field) | field <- fields]);
+    default:
+      throw "Unsupported struct definition parse tree: <tree>";
+  }
+}
+
+private AST::StructField toStructField(Tree tree) {
+  switch (tree) {
+    case (StructField) `<Id name> : <Type tp>`:
+      return AST::structFieldNode(text(name), toType(tp));
+    default:
+      throw "Unsupported struct field parse tree: <tree>";
+  }
+}
+
+private AST::DataDef toDataDef(Tree tree) {
+  switch (tree) {
+    case (DataDef) `defdata <Id name> <DataVariant* variants> end`:
+      return AST::dataNode(text(name), [toDataVariant(variant) | variant <- variants]);
+    default:
+      throw "Unsupported data definition parse tree: <tree>";
+  }
+}
+
+private AST::DataVariant toDataVariant(Tree tree) {
+  switch (tree) {
+    case (DataVariant) `<Id name>`:
+      return AST::dataVariantNode(text(name), []);
+    case (DataVariant) `<Id name> <DataVariantSignature sig>`:
+      return AST::dataVariantNode(text(name), toDataVariantSignature(sig));
+    default:
+      throw "Unsupported data variant parse tree: <tree>";
+  }
+}
+
+private list[AST::Type] toDataVariantSignature(Tree tree) {
+  switch (tree) {
+    case (DataVariantSignature) `: <{Type "-\>"}+ typeSig>`:
+      return [toType(tp) | tp <- typeSig];
+    default:
+      throw "Unsupported data variant signature parse tree: <tree>";
   }
 }
 

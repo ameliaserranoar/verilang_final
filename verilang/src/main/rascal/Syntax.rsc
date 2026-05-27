@@ -8,6 +8,8 @@ start syntax Module = \module: "defmodule" Id name Definition* defs "end";
 syntax Definition 
   = usingDef: Using
   | spaceDef: SpaceDef
+  | structDef: StructDef
+  | dataDef: DataDef
   | operatorDef: OperatorDef
   | varDef: VarDef
   | ruleDef: RuleDef
@@ -19,6 +21,16 @@ syntax Using = using: "using" Id name;
 syntax SpaceDef = spaceDef: "defspace" Id name SpaceParent? parent "end";
 
 syntax SpaceParent = spaceParent: "\<" Id name;
+
+syntax StructDef = structDef: "defstruct" Id name StructField* fields "end";
+
+syntax StructField = structField: Id name ":" Type tp;
+
+syntax DataDef = dataDef: "defdata" Id name DataVariant* variants "end";
+
+syntax DataVariant = dataVariant: Id name DataVariantSignature? sig;
+
+syntax DataVariantSignature = dataVariantSignature: ":" {Type "-\>"}+ typeSig;
 
 syntax OperatorDef = operatorDef: "defoperator" Id name ":" {Type "-\>"}+ typeSig AttributeList? attrs "end";
 
@@ -122,6 +134,7 @@ lexical StringLiteral = "\"" ![\"]* "\"";
 
 keyword Reserved = 
   "defmodule" | "using" | "defspace" | "defoperator" | 
+  "defstruct" | "defdata" |
   "defexpression" | "defrule" | "defvar" | "end" | 
   "forall" | "exists" | "in" | "defer" | "neg" | 
   "or" | "and" | "true" | "false" | 

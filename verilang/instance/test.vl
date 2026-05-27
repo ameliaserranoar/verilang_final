@@ -4,6 +4,16 @@ using math
 defspace expr end
 defspace nat < expr end
 
+defstruct pair
+first : nat
+second : nat
+end
+
+defdata truth
+yes
+no
+end
+
 defoperator plus : nat -> nat -> nat [commutative associative] end
 defoperator leq : nat -> Bool [precedence:low] end
 
