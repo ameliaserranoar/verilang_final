@@ -1,0 +1,739 @@
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes, fit}
+\usepackage{hyperref}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{multirow}
+
+% ── estilo de listings ──
+\lstdefinestyle{rascalstyle}{
+  language={},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  breakautoindent=true,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{gray!40},
+  backgroundcolor=\color{gray!5},
+  tabsize=2,
+  columns=fixed,
+  keepspaces=true,
+  extendedchars=true,
+  inputencoding=utf8,
+  mathescape=true,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1
+           {Ú}{{\'U}}1 {¡}{{!`}}1 {¿}{{?`}}1 {≡}{{$\equiv$}}1
+           {→}{{$\rightarrow$}}1 {⇒}{{$\Rightarrow$}}1
+           {–}{{--}}1 {°}{{$^\circ$}}1,
+}
+
+\lstdefinestyle{kotlinstyle}{
+  language=Java,
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  breakautoindent=true,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{gray!40},
+  backgroundcolor=\color{gray!5},
+  tabsize=2,
+  columns=fixed,
+  keepspaces=true,
+  extendedchars=true,
+  inputencoding=utf8,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1
+           {Ú}{{\'U}}1 {¡}{{!`}}1 {¿}{{?`}}1,
+}
+
+\lstnewenvironment{rascal}{\lstset{style=rascalstyle}}{}
+\lstnewenvironment{kotlin}{\lstset{style=kotlinstyle}}{}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\file}[1]{\texttt{#1}}
+
+\begin{document}
+
+%% ── PORTADA ──
+\begin{center}
+  {\Large\textbf{ISIS-2111 PLE}}\\[0.4cm]
+  {\Large\textbf{Proyecto 4}}\\[0.6cm]
+  {\LARGE\textbf{VeriLang en Kotlin}}\\[0.8cm]
+
+  Amelia Serrano Arango -- 202221556\\
+  Cristian David Ortiz Sanchez -- 202311404\\[0.4cm]
+  Mayo 2026
+\end{center}
+
+\vspace{0.6cm}
+
+%% ── RESUMEN ──
+\section*{Resumen}
+\addcontentsline{toc}{section}{Resumen}
+
+En este proyecto se tomó la implementación de VeriLang del Proyecto 3 (con las correcciones
+aplicadas de la retroalimentación de la TA) y se adaptó para ejecutarse desde un entorno
+Kotlin en lugar de Java. Para ello se creó el módulo \code{RunnerJson.rsc}, que orquesta
+el pipeline de análisis (parsing, construcción del AST, verificación semántica y de tipos,
+y evaluación de expresiones) y produce un único objeto JSON. Una aplicación de escritorio
+en Kotlin con Compose Desktop invoca a Rascal, extrae el JSON resultante y lo despliega
+en una interfaz gráfica que muestra el estado del parser, la lista de módulos, los errores
+encontrados y la salida del programa. Se añadió soporte para \code{defstruct} y
+\code{defdata} en la gramática, el AST, el parser y el checker. El \code{.zip} de entrega
+incluye tanto el código fuente de Rascal como la aplicación Kotlin.
+
+\newpage
+
+%% ── TABLA DE CONTENIDO ──
+\tableofcontents
+\newpage
+
+%% ── 1. INTRODUCCIÓN ──
+\section{Introducción}
+
+VeriLang es un lenguaje de programación educativo diseñado en el marco de la materia
+ISIS-2111 PLE para explorar conceptos de definición de lenguajes usando Rascal como
+\emph{language workbench}. En los proyectos anteriores se definió la gramática formal, se
+implementó el parser, el AST, el intérprete y el checker semántico, y se construyó una
+interfaz en Java.
+
+Para el Proyecto 4, el objetivo es migrar la interfaz a Kotlin, aprovechando Rascal para
+producir un JSON intermedio que la aplicación Kotlin consume. Específicamente se debe:
+
+\begin{itemize}
+  \item Reutilizar la implementación de VeriLang del Proyecto 3 con las correcciones
+        aplicadas.
+  \item Extraer el AST del lenguaje a un archivo JSON mediante un módulo Rascal
+        (\code{RunnerJson.rsc}).
+  \item Crear un servicio Kotlin (\code{VeriLangService.kt}) que invoque a Rascal,
+        capture la salida JSON y la deserialice.
+  \item Construir una interfaz gráfica en Compose Desktop (\code{MainWindow.kt}) que
+        muestre el estado del parser, la lista de módulos, los errores y la salida.
+  \item Entregar un \code{.zip} con la solución y el documento.
+\end{itemize}
+
+Adicionalmente, se incorporaron las estructuras \code{defstruct} y \code{defdata}
+a la gramática y al sistema de tipos, completando así el conjunto de constructos
+solicitados en iteraciones anteriores.
+
+%% ── 2. CORRECCIONES APLICADAS ──
+\section{Correcciones aplicadas del Proyecto 3}
+
+Atendiendo la retroalimentación de la TA (Carla) sobre la Entrega 2, se aplicaron las
+siguientes correcciones en el Proyecto 3, las cuales se mantienen y heredan en este
+Proyecto 4. El detalle completo se encuentra en el documento
+\emph{Correcciones aplicadas a VeriLang.pdf}.
+
+\begin{itemize}
+  \item \textbf{Identificadores con mayúsculas:} la regla léxica \code{Id} se amplió de
+        \code{[a-z]} a \code{[a-zA-Z]} para permitir identificadores como \code{Set},
+        \code{Bool} o \code{Nat}.
+  \item \textbf{Jerarquía aritmética completa:} se insertaron los niveles
+        \code{AddExpr}, \code{MultExpr} y \code{PowExpr} entre \code{EqExpr} y
+        \code{UnaryExpr}, añadiendo los operadores \code{+}, \code{-}, \code{*},
+        \code{/}, \code{\%} y \code{**}.
+  \item \textbf{Operador de equivalencia lógica:} se añadió \code{$\equiv$} (equivalencia) a
+        \code{EqExpr}.
+  \item \textbf{Literales en Atom:} se conectaron \code{IntLiteral}, \code{FloatLiteral}
+        y \code{CharLiteral} como alternativas de \code{Atom}, y se añadieron
+        \code{BoolLiteral} y \code{StringLiteral}.
+  \item \textbf{CharLiteral con mayúsculas:} se amplió de \code{[a-z]} a \code{[a-zA-Z]}.
+  \item \textbf{Evaluador completo:} se implementó un evaluador que reduce expresiones
+        a valores concretos (\code{intVal}, \code{floatVal}, \code{boolVal},
+        \code{charVal}, \code{stringVal}, \code{appVal}), usando pattern matching
+        sobre reglas definidas por el usuario.
+\end{itemize}
+
+%% ── 3. GRAMÁTICA FORMAL ──
+\section{Gramática formal}
+
+A continuación se presenta la especificación formal actualizada de VeriLang, que incorpora
+\code{defstruct} y \code{defdata}.
+
+\subsection{Alfabeto ($\Sigma$)}
+
+\subsubsection{Palabras reservadas}
+
+\begin{lstlisting}[style=rascalstyle, basicstyle=\ttfamily\small]
+defmodule  using  defspace  defoperator  defexpression  defrule  defvar
+defstruct  defdata  end  forall  exists  in  defer  neg
+or  and  true  false  Int  Float  Bool  Char  String
+\end{lstlisting}
+
+\subsubsection{Símbolos y operadores}
+
+\begin{lstlisting}[style=rascalstyle, basicstyle=\ttfamily\small]
+( ) [ ] : . , + - * / % ** < > <= >= <> = -> =>
+or  and  neg  in  ≡
+a..z  A..Z  0..9
+\end{lstlisting}
+
+\subsection{No terminales ($N$)}
+
+\small
+\[
+\begin{array}{l}
+N = \{\;Module,\;Definition,\;Using,\;SpaceDef,\;SpaceParent,\;StructDef,\;
+StructField,\;\\
+\qquad DataDef,\;DataVariant,\;DataVariantSignature,\;OperatorDef,\;VarDef,\;
+VarDecl,\;\\
+\qquad RuleDef,\;ExpressionDef,\;Type,\;LogicalExpression,\;OrExpr,\;AndExpr,\;
+EqExpr,\;\\
+\qquad AddExpr,\;MultExpr,\;PowExpr,\;UnaryExpr,\;Atom,\;Application,\;\\
+\qquad AttributeList,\;Attribute,\;AttributeValue,\;Letter,\;LowerLetter,\;
+UpperLetter,\;\\
+\qquad Number,\;Identifier,\;IntLiteral,\;FloatLiteral,\;CharLiteral,\;
+BoolLiteral,\;StringLiteral\;\}
+\end{array}
+\]
+\normalsize
+
+\subsection{Símbolo inicial ($S_0$)}
+
+\[ S_0 = Module \]
+
+\subsection{Reglas de producción ($P$)}
+
+Para facilitar la lectura, las reglas se presentan agrupadas por categoría. Las
+palabras entre comillas dobles son símbolos terminales.
+
+\subsubsection*{Estructura del módulo}
+
+\begin{lstlisting}[style=rascalstyle, basicstyle=\ttfamily\small, mathescape]
+Module  ::=  "defmodule" Identifier { Definition } "end"
+Using   ::=  "using" Identifier
+\end{lstlisting}
+
+\subsubsection*{Definiciones}
+
+\begin{lstlisting}[style=rascalstyle, basicstyle=\ttfamily\small, mathescape, breaklines=false]
+Definition     ::=  Using | SpaceDef | StructDef | DataDef
+                 |  OperatorDef | VarDef | RuleDef | ExpressionDef
+
+SpaceDef       ::=  "defspace" Identifier [ "<" Identifier ] "end"
+StructDef      ::=  "defstruct" Identifier { StructField } "end"
+StructField    ::=  Identifier : Type
+DataDef        ::=  "defdata" Identifier { DataVariant } "end"
+DataVariant    ::=  Identifier [ DataVariantSignature ]
+DataVariantSig ::=  : { Type -> }$^+$
+OperatorDef    ::=  "defoperator" Identifier : { Type -> }$^+$ [ AttributeList ] "end"
+VarDef         ::=  "defvar" { VarDecl "," }$^+$ "end"
+VarDecl        ::=  Identifier : Type
+RuleDef        ::=  "defrule" Application -> Application "end"
+ExpressionDef  ::=  "defexpression" LogicalExpression [ AttributeList ] "end"
+\end{lstlisting}
+
+\subsubsection*{Expresiones}
+
+\begin{lstlisting}[style=rascalstyle, basicstyle=\ttfamily\small, mathescape, breaklines=false]
+LogicalExpression  ::=  OrExpr
+OrExpr             ::=  AndExpr { "or" AndExpr }
+AndExpr            ::=  EqExpr { "and" EqExpr }
+EqExpr             ::=  AddExpr { ("=" | "<>" | "<" | ">" | "<=" | ">=" | $\equiv$ | "=>" | "in") AddExpr }
+AddExpr            ::=  MultExpr { ("+" | "-") MultExpr }
+MultExpr           ::=  PowExpr { ("*" | "/" | "%") PowExpr }
+PowExpr            ::=  UnaryExpr { "**" UnaryExpr }
+UnaryExpr          ::=  [ "neg" ] Atom | "forall" Id "in" Id "." LogicalExpression
+                     |  "exists" Id "in" Id "." LogicalExpression
+Atom               ::=  Identifier | IntLiteral | FloatLiteral | CharLiteral
+                     |  BoolLiteral | StringLiteral | Application | "(" LogicalExpression ")"
+Application        ::=  "(" Identifier { LogicalExpression } ")"
+\end{lstlisting}
+
+\subsubsection*{Elementos léxicos}
+
+\begin{lstlisting}[style=rascalstyle, basicstyle=\ttfamily\small, mathescape, breaklines=false]
+Type           ::=  "Int" | "Float" | "Bool" | "Char" | "String" | Identifier
+AttributeList  ::=  "[" { Attribute } "]"
+Attribute      ::=  Identifier [ ":" Identifier ]
+Identifier     ::=  Letter { Letter | Number | "-" }
+Letter         ::=  LowerLetter | UpperLetter
+LowerLetter    ::=  "a" | "b" | ... | "z"
+UpperLetter    ::=  "A" | "B" | ... | "Z"
+Number         ::=  "0" | "1" | ... | "9"
+IntLiteral     ::=  Number { Number }
+FloatLiteral   ::=  Number { Number } "." Number { Number }
+CharLiteral    ::=  "'" Letter "'"
+BoolLiteral    ::=  "true" | "false"
+StringLiteral  ::=  '"' { cualquier caracter no '"' } '"'
+\end{lstlisting}
+
+%% ── 4. ARQUITECTURA ──
+\section{Arquitectura}
+
+La comunicación entre Rascal y Kotlin sigue el pipeline ilustrado en la
+Figura~\ref{fig:pipeline}. Rascal se encarga de todo el análisis del lenguaje
+(parsing, AST, verificación, evaluación) y produce un único objeto JSON. La
+aplicación Kotlin invoca a Rascal como un proceso externo, captura el JSON
+por salida estándar y lo despliega en la interfaz gráfica.
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[
+  node distance=1.2cm and 2cm,
+  box/.style={rectangle, draw, rounded corners, minimum width=2.8cm,
+              minimum height=0.9cm, align=center, font=\small},
+  arrow/.style={-{Stealth[scale=1.2]}, thick},
+  label/.style={font=\small\itshape}
+]
+
+\node[box, fill=blue!10] (vlfile)       {Archivo \texttt{.vl}};
+\node[box, fill=green!10, below=of vlfile] (parse)    {Parser\\\texttt{Syntax.rsc}};
+\node[box, fill=green!10, below=of parse] (ast)       {AST\\\texttt{Parser.rsc}};
+\node[box, fill=orange!10, below=of ast] (check)     {Checker\\\texttt{Checker.rsc}};
+\node[box, fill=orange!10, below=of check] (eval)     {Intérprete\\\texttt{Interpreter.rsc}};
+\node[box, fill=red!10, below=of eval] (json)      {JSON\\\texttt{RunnerJson.rsc}};
+
+\node[box, fill=purple!10, right=of json] (ktservice) {VeriLang\\Service.kt};
+\node[box, fill=purple!10, above=of ktservice] (ktgui)   {Main\\Window.kt};
+
+\draw[arrow] (vlfile) -- node[label, right]{lectura} (parse);
+\draw[arrow] (parse)  -- node[label, right]{CST} (ast);
+\draw[arrow] (ast)    -- node[label, right]{AST} (check);
+\draw[arrow] (check)  -- node[label, right]{AST validado} (eval);
+\draw[arrow] (eval)   -- node[label, right]{resultados} (json);
+\draw[arrow] (json)   -- node[label, below]{stdout (JSON)} (ktservice);
+\draw[arrow] (ktservice) -- node[label, left]{RunResult} (ktgui);
+
+\node[draw, dashed, rounded corners, fit={(parse) (ast) (check) (eval) (json)},
+      inner sep=0.6cm, label={[above, font=\bfseries]Rascal}] {};
+\node[draw, dashed, rounded corners, fit={(ktservice) (ktgui)},
+      inner sep=0.6cm, label={[above, font=\bfseries]Kotlin / JVM}] {};
+
+\end{tikzpicture}
+\caption{Pipeline de comunicación Rascal $\rightarrow$ JSON $\rightarrow$ Kotlin.}
+\label{fig:pipeline}
+\end{figure}
+
+%% ── 5. COMPONENTES ──
+\section{Componentes}
+
+\subsection{Syntax.rsc}
+
+Define la gramática libre de contexto de VeriLang usando la notación de
+sintaxis concreta de Rascal. Incluye las reglas para \code{defstruct}
+y \code{defdata}:
+
+\begin{rascal}
+syntax StructDef = structDef:
+  "defstruct" Id name StructField* fields "end";
+syntax StructField = structField:
+  Id name ":" Type tp;
+
+syntax DataDef = dataDef:
+  "defdata" Id name DataVariant* variants "end";
+syntax DataVariant = dataVariant:
+  Id name DataVariantSignature? sig;
+syntax DataVariantSignature = dataVariantSignature:
+  ":" {Type "-\>"}+ typeSig;
+\end{rascal}
+
+Además se añadieron \code{BoolLiteral} y \code{StringLiteral} como
+alternativas léxicas, y se actualizó el conjunto \code{Reserved} con
+\code{defstruct}, \code{defdata}, \code{true}, \code{false},
+\code{Int}, \code{Float}, \code{Bool}, \code{Char}, \code{String}.
+
+\subsection{AST.rsc}
+
+Define las estructuras de datos del árbol de sintaxis abstracta. Se
+añadieron los constructores para las nuevas definiciones:
+
+\begin{rascal}
+data Definition
+  = ...
+  | structDefinition(StructDef structDecl)
+  | dataDefinition(DataDef dataDecl)
+  ;
+
+data StructDef = structNode(str name, list[StructField] fields);
+data StructField = structFieldNode(str name, Type tp);
+data DataDef = dataNode(str name, list[DataVariant] variants);
+data DataVariant = dataVariantNode(str name, list[Type] args);
+\end{rascal}
+
+El tipo \code{Literal} unifica todos los literales:
+
+\begin{rascal}
+data Literal
+  = intLiteral(int intVal)   | floatLiteral(real floatVal)
+  | charLiteral(str charVal) | boolLiteral(bool boolVal)
+  | stringLiteral(str stringVal)
+  ;
+\end{rascal}
+
+\subsection{Parser.rsc}
+
+Transforma el árbol de parse concreto (CST) producido por Rascal en el
+AST definido en \code{AST.rsc}. Se añadieron las funciones de
+transformación para \code{StructDef}, \code{DataDef}, \code{BoolLiteral}
+y \code{StringLiteral}. El parser usa pattern matching sobre la sintaxis
+concreta de Rascal para cada producción.
+
+Ejemplo para \code{StructDef}:
+
+\begin{rascal}
+private AST::StructDef toStructDef(Tree tree) {
+  switch (tree) {
+    case (StructDef) `defstruct <Id name> <StructField* fields> end`:
+      return AST::structNode(text(name),
+               [toStructField(field) | field <- fields]);
+    default:
+      throw "Unsupported struct definition parse tree: <tree>";
+  }
+}
+\end{rascal}
+
+\subsection{Checker.rsc}
+
+El checker combina dos niveles de verificación:
+
+\begin{enumerate}
+  \item \textbf{TypePal:} mediante \code{extend analysis::typepal::TypePal},
+        se recolectan definiciones y usos de espacios, operadores y variables,
+        y se resuelven las restricciones de tipos automáticamente.
+  \item \textbf{Validación manual:} se implementaron funciones específicas
+        para detectar errores que TypePal no cubre directamente:
+        \begin{itemize}
+          \item Tipos duplicados (\code{duplicateErrors})
+          \item Tipos desconocidos en campos de \code{defstruct},
+                argumentos de \code{defdata}, variables y operadores
+                (\code{checkTypeExists})
+          \item Operadores con aridad insuficiente (\code{checkOperatorShape})
+          \item Coherencia de tipos en reglas (\code{checkRule})
+          \item Existencia del espacio padre (\code{checkSpaceParent})
+        \end{itemize}
+\end{enumerate}
+
+El chequeo de tipos de expresiones (\code{typeOf}) verifica cada
+constructor del AST:
+\begin{itemize}
+  \item \textbf{Literales:} infieren su tipo directamente.
+  \item \textbf{Variables:} se resuelven contra el entorno de variables.
+  \item \textbf{Aplicaciones:} se verifica aridad y tipos de argumentos
+        contra la firma del operador.
+  \item \textbf{Operadores aritméticos:} requieren \code{Int} o
+        \code{Float} con tipo coincidente; \code{\%} solo acepta \code{Int}.
+  \item \textbf{Potencia:} base y exponente deben ser \code{Int}.
+  \item \textbf{Comparaciones:} \code{=} y \code{<>} requieren tipos
+        iguales; \code{$\equiv$} y \code{=>} requieren \code{Bool};
+        \code{<}, \code{>}, \code{<=}, \code{>=} requieren \code{Int}
+        o \code{Float}; \code{in} verifica compatibilidad con el dominio.
+\end{itemize}
+
+\subsection{Interpreter.rsc}
+
+Evalúa las expresiones del AST a valores concretos (\code{RuntimeValue::Val}).
+Soporta:
+
+\begin{itemize}
+  \item Literales, variables y aplicaciones de operadores.
+  \item Reglas definidas por el usuario (\code{defrule}) mediante
+        pattern matching (\code{RuleMatcher.rsc}).
+  \item Operaciones aritméticas, comparaciones, potencia, negación,
+        disyunción y conjunción.
+  \item Cuantificadores (\code{forall}, \code{exists}) con entorno
+        de variables acotado.
+\end{itemize}
+
+La evaluación se realiza sólo si el checker no reporta errores, lo que
+garantiza que el programa está bien tipado antes de ejecutarse.
+
+\subsection{RunnerJson.rsc}
+
+Es el módulo central de orquestación. Su función \code{main} recibe la
+ruta de un archivo \code{.vl} y ejecuta el pipeline completo:
+
+\begin{enumerate}
+  \item Lee el archivo fuente.
+  \item Parsing con \code{parse(\#start[Module], src)}.
+  \item Construcción del AST con \code{Parser::toAST}.
+  \item Verificación con \code{Checker::check} (TypePal + manual).
+  \item Evaluación de expresiones con \code{Interpreter::eval} (solo si
+        no hay errores).
+  \item Impresión de un único objeto JSON con todos los resultados.
+\end{enumerate}
+
+Estructura del JSON producido:
+
+\begin{rascal}
+{
+  "success": true,            // true si todo ok
+  "module": "demo",           // nombre del módulo
+  "modules": ["demo"],        // lista de módulos
+  "parseOk": true,            // estado del parser
+  "typeCheckOk": true,        // estado del type checker
+  "semanticOk": true,         // estado semántico
+  "typeErrors": [],           // errores de tipo
+  "semanticErrors": [],       // errores semánticos
+  "output": ["resultado"],    // salida de la evaluación
+  "error": "",                // mensaje de error general
+  "codigoFormateado": "...",  // código fuente original
+  "resumen": "modulo=demo; definiciones=9; expresiones=1"
+}
+\end{rascal}
+
+\subsection{Aplicación Kotlin}
+
+La aplicación de escritorio está construida con Compose Desktop y consta
+de cuatro archivos:
+
+\subsubsection*{Main.kt}
+
+Punto de entrada. Crea una ventana con título \texttt{VeriLang} de
+800$\times$600 píxeles e inicia \code{MainWindow}.
+
+\subsubsection*{RunResult.kt}
+
+Modelo de datos serializable con \code{kotlinx.serialization}. Sus campos
+coinciden exactamente con las claves del JSON producido por
+\code{RunnerJson.rsc}:
+
+\begin{kotlin}
+@Serializable
+data class RunResult(
+    val success: Boolean = false,
+    val module: String = "",
+    val modules: List<String> = emptyList(),
+    val parseOk: Boolean = false,
+    val typeCheckOk: Boolean = false,
+    val semanticOk: Boolean = false,
+    val typeErrors: List<String> = emptyList(),
+    val semanticErrors: List<String> = emptyList(),
+    val output: List<String> = emptyList(),
+    val error: String = "",
+    val codigoFormateado: String = "",
+    val resumen: String = ""
+)
+\end{kotlin}
+
+\subsubsection*{VeriLangService.kt}
+
+Servicio que ejecuta Rascal como un proceso externo:
+
+\begin{kotlin}
+val cmd = listOf(
+    "java",
+    "-Dfile.encoding=UTF-8",
+    "-Drascal.projectPath=${projectRoot.absolutePath}",
+    "-jar", rascalJar.absolutePath,
+    "RunnerJson",
+    filePath
+)
+val process = ProcessBuilder(cmd).directory(srcDir).start()
+\end{kotlin}
+
+Captura el stdout, extrae el primer objeto JSON válido que contenga la
+clave \texttt{success}, y lo deserializa en \code{RunResult}. Se ejecuta
+en \code{Dispatchers.IO} para no bloquear la interfaz.
+
+\subsubsection*{MainWindow.kt}
+
+Interfaz gráfica que contiene:
+\begin{itemize}
+  \item Campo de texto para la ruta del archivo y botón \textit{Buscar}
+        (usando \code{JFileChooser} filtrado a \code{.vl}).
+  \item Botón \textit{Correr} que invoca \code{VeriLangService.run}.
+  \item Panel de resultados con indicadores de estado coloreados
+        (Parse, Types, Semántica), lista de módulos, resumen del AST,
+        errores de tipos, errores semánticos, código formateado y
+        salida del programa.
+\end{itemize}
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[
+  box/.style={rectangle, draw, rounded corners, minimum width=6cm,
+              minimum height=0.6cm, align=left, font=\small},
+  title/.style={font=\bfseries, align=center}
+]
+\node[title] at (0,1.5) {Distribución de la interfaz};
+\node[box, fill=blue!5] (path) at (0,0)     {Ruta: \texttt{/home/.../test.vl}~~[Buscar]~~[Correr]};
+\node[box, fill=green!5] (status) at (0,-0.8)
+      {[Parse: OK]~~[Types: OK]~~[Sem\'antica: OK]~~m\'odulo: demo};
+\node[box, fill=purple!5] (mods) at (0,-1.8) {M\'odulos: demo};
+\node[box, fill=yellow!5] (errors) at (0,-2.8) {Errores de tipos: \emph{vac\'io}};
+\node[box, fill=orange!5] (output) at (0,-3.8) {Output: \texttt{true}};
+\end{tikzpicture}
+\caption{Esquema de la interfaz gráfica de MainWindow.kt.}
+\label{fig:gui}
+\end{figure}
+
+%% ── 6. PRUEBAS ──
+\section{Pruebas}
+
+Se incluyen dos archivos de prueba en el directorio \file{instance/}.
+
+\subsection{test.vl (archivo válido)}
+
+\begin{rascal}
+defmodule demo
+using math
+defspace expr end
+defspace nat < expr end
+defstruct pair
+  first : nat
+  second : nat
+end
+defdata truth
+  yes
+  no
+end
+defoperator plus : nat -> nat -> nat [commutative associative] end
+defoperator leq : nat -> Bool [precedence:low] end
+defvar x : nat, y : nat, z : nat end
+defrule (plus x y) -> (plus y x) end
+defexpression forall x in nat . exists y in nat . neg (x = y) end
+end
+\end{rascal}
+
+\textbf{Resultado esperado:}
+\begin{itemize}
+  \item \code{parseOk = true}
+  \item \code{typeCheckOk = true}
+  \item \code{semanticOk = true}
+  \item \code{output} contiene el resultado de evaluar la expresión
+        (un valor booleano).
+  \item \code{modules = ["demo"]}
+\end{itemize}
+
+\subsection{error\_test.vl (archivo con errores)}
+
+\begin{rascal}
+defmodule errortest
+defspace nat end
+defstruct bad-struct
+  field : missing-struct-type
+  field : nat        // duplicado
+end
+defdata bad-data
+  bad-constructor : missing-constructor-type
+  bad-constructor   // duplicado
+end
+defoperator plus : nat -> nat -> nat end
+defoperator leq : nat -> nat -> Bool end
+defvar x : nat end
+defrule (plus x y) -> (minus x y) end  // minus no existe
+defexpression neg (x = z) end           // z no definida
+defexpression (undefined-op x y) end    // operador no existe
+defvar bad : missing-space end          // tipo no existe
+defspace child < missing-parent end     // padre no existe
+defexpression forall n in missing-domain . (leq n x) end
+defexpression (plus x true) end         // tipo incorrecto
+end
+\end{rascal}
+
+\textbf{Resultado esperado:}
+\begin{itemize}
+  \item \code{parseOk = true}
+  \item \code{typeCheckOk = false}
+  \item \code{semanticOk = false}
+  \item \code{typeErrors} contiene al menos 8 errores (campos duplicados,
+        tipos desconocidos, constructores duplicados, operador no definido,
+        variable no definida, espacio faltante, padre faltante, dominio
+        faltante, tipo incorrecto en argumento).
+  \item \code{output = []} (no se evalúa si hay errores).
+\end{itemize}
+
+%% ── 7. EJECUCIÓN ──
+\section{Ejecución}
+
+\subsection{Requisitos}
+
+\begin{itemize}
+  \item \textbf{Rascal:} \code{rascal-shell-stable.jar} ubicado en el
+        directorio \code{verilang/} o en el directorio padre del proyecto.
+  \item \textbf{Kotlin:} Gradle instalado (\code{gradle --version}).
+\end{itemize}
+
+\subsection{Comandos}
+
+Desde la terminal, ubicarse en \code{verilang/kotlin-app} y ejecutar:
+
+\begin{kotlin}
+gradle run
+\end{kotlin}
+
+La aplicación invoca internamente:
+
+\begin{kotlin}
+java -Dfile.encoding=UTF-8 \\
+     -Drascal.projectPath=<verilang> \\
+     -jar rascal-shell-stable.jar \\
+     RunnerJson <archivo.vl>
+\end{kotlin}
+
+La primera ejecución descarga las dependencias de Compose
+($\sim$2 minutos). Las siguientes son inmediatas.
+
+\subsection{Ejemplo}
+
+\begin{enumerate}
+  \item Abrir la aplicación con \code{gradle run}.
+  \item Presionar \textit{Buscar} y seleccionar \code{instance/test.vl}.
+  \item Presionar \textit{Correr}.
+  \item Los indicadores \textit{Parse}, \textit{Types} y \textit{Semántica}
+        se muestran en verde (OK).
+  \item El módulo \code{demo} aparece en la lista de módulos.
+  \item La salida de la evaluación se muestra en la sección \textit{Output}.
+\end{enumerate}
+
+%% ── 8. CONCLUSIONES ──
+\section{Conclusiones}
+
+En este proyecto se logró migrar exitosamente la interfaz de VeriLang de
+Java a Kotlin, demostrando la flexibilidad de Rascal como \emph{language
+workbench} para separar el análisis del lenguaje de la presentación de
+resultados.
+
+\subsection*{Logros principales}
+\begin{itemize}
+  \item El pipeline Rascal $\rightarrow$ JSON $\rightarrow$ Kotlin funciona
+        de extremo a extremo, permitiendo que cualquier lenguaje definido
+        en Rascal se conecte a una GUI Kotlin con solo implementar
+        \code{RunnerJson.rsc}.
+  \item La gramática de VeriLang se completó con \code{defstruct} y
+        \code{defdata}, cubriendo todos los constructores solicitados
+        durante el semestre.
+  \item El checker combina TypePal para resolución automática de tipos
+        con validación manual para reglas específicas del lenguaje,
+        resultando en un sistema de tipos robusto.
+\end{itemize}
+
+\subsection*{Limitaciones}
+\begin{itemize}
+  \item Los errores de tipo y semánticos se reportan en una sola lista,
+        sin diferenciación. Una mejora futura sería separarlos para
+        dar retroalimentación más precisa al usuario.
+  \item El intérprete maneja cuantificadores de forma simplificada
+        (asigna \code{appVal} a las variables cuantificadas), lo que
+        limita la expresividad de la evaluación.
+  \item La aplicación requiere Gradle instalado; no se incluyen los
+        scripts \code{gradlew} por restricciones de tamaño del correo
+        corporativo.
+\end{itemize}
+
+\subsection*{Trabajo futuro}
+\begin{itemize}
+  \item Separar los errores del checker en categorías (tipo vs. semánticos)
+        para mejorar la claridad en la interfaz.
+  \item Implementar un pretty printer que produzca código formateado
+        a partir del AST.
+  \item Agregar resaltado de sintaxis (\code{@category}) en la gramática
+        de Rascal, que no pudo incluirse por conflictos con el sistema
+        de palabras reservadas.
+  \item Extender el intérprete para manejar semántica más compleja
+        (evaluación de \code{defstruct}, \code{defdata} y constructores
+        con argumentos).
+\end{itemize}
+
+\end{document}
