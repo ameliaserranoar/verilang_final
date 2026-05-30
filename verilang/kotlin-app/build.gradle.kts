@@ -23,6 +23,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.0")
 }
 
+kotlin {
+    jvmToolchain(21)
+}
+
 compose.desktop {
     application {
         mainClass = "verilang.MainKt"

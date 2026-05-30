@@ -47,6 +47,17 @@ private str jsonResult(
 private loc sourceLoc(str path) =
   startsWith(path, "/") ? |file:///| + path : |cwd:///| + path;
 
+private void emit(list[str] args, str json) {
+  if (size(args) > 1) {
+    try {
+      writeFile(sourceLoc(args[1]), json);
+    } catch e: {
+      ;
+    }
+  }
+  println(json);
+}
+
 private map[str, list[AST::RuleDef]] buildRuleMap(AST::Module m) {
   map[str, list[AST::RuleDef]] rules = ();
   for (def <- m.defs) {
@@ -92,7 +103,7 @@ private list[str] evaluateExpressions(AST::Module ast) {
 
 public void main(list[str] args) {
   if (isEmpty(args)) {
-    println(jsonResult(false, "", [], false, false, false, [], [], [], "No input file was provided", "", ""));
+    emit(args, jsonResult(false, "", [], false, false, false, [], [], [], "No input file was provided", "", ""));
     return;
   }
 
@@ -101,7 +112,7 @@ public void main(list[str] args) {
   try {
     src = readFile(input);
   } catch e: {
-    println(jsonResult(false, "", [], false, false, false, [], [], [], "No se pudo leer el archivo: <e>", "", ""));
+    emit(args, jsonResult(false, "", [], false, false, false, [], [], [], "No se pudo leer el archivo: <e>", "", ""));
     return;
   }
 
@@ -109,10 +120,10 @@ public void main(list[str] args) {
   try {
     tree = parse(#start[Module], src, input).top;
   } catch ParseError(loc at): {
-    println(jsonResult(false, "", [], false, false, false, [], [], [], "Error de parsing en <at>", "", ""));
+    emit(args, jsonResult(false, "", [], false, false, false, [], [], [], "Error de parsing en <at>", "", ""));
     return;
   } catch e: {
-    println(jsonResult(false, "", [], false, false, false, [], [], [], "Error de parsing: <e>", "", ""));
+    emit(args, jsonResult(false, "", [], false, false, false, [], [], [], "Error de parsing: <e>", "", ""));
     return;
   }
 
@@ -120,12 +131,12 @@ public void main(list[str] args) {
   try {
     ast = Parser::toAST(tree);
   } catch e: {
-    println(jsonResult(false, "", [], true, false, false, [], [], [], "Error construyendo AST: <e>", "", ""));
+    emit(args, jsonResult(false, "", [], true, false, false, [], [], [], "Error construyendo AST: <e>", "", ""));
     return;
   }
 
   list[str] errors = Checker::check(tree, ast);
   bool ok = isEmpty(errors);
   list[str] output = ok ? evaluateExpressions(ast) : [];
-  println(jsonResult(ok, ast.name, [ast.name], true, ok, ok, errors, [], output, "", src, moduleSummary(ast)));
+  emit(args, jsonResult(ok, ast.name, [ast.name], true, ok, ok, errors, errors, output, "", src, moduleSummary(ast)));
 }

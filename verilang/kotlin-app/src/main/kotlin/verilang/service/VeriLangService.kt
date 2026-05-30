@@ -56,17 +56,22 @@ class VeriLangService {
         if (!srcDir.exists())
             throw RuntimeException("No se encontró el directorio src/main/rascal en ${srcDir.absolutePath}")
 
+        val jsonFile = File.createTempFile("verilang-", ".json").apply {
+            deleteOnExit()
+        }
+
         val cmd = listOf(
             "java",
             "-Dfile.encoding=UTF-8",
             "-Drascal.projectPath=${projectRoot.absolutePath}",
             "-jar", rascalJar.absolutePath,
             "RunnerJson",
-            filePath
+            filePath,
+            jsonFile.absolutePath
         )
 
         val process = ProcessBuilder(cmd)
-            .directory(srcDir)
+            .directory(projectRoot)
             .redirectErrorStream(false)
             .start()
         process.outputStream.close()
@@ -92,7 +97,8 @@ class VeriLangService {
         if (process.exitValue() != 0 && stdout.isBlank())
             throw RuntimeException("Error de Rascal (exit ${process.exitValue()}):\n$stderr")
 
-        return stdout
+        val jsonFromFile = if (jsonFile.exists()) jsonFile.readText() else ""
+        return if (jsonFromFile.isNotBlank()) jsonFromFile else stdout
     }
 
     private fun extractJson(output: String): String? {
