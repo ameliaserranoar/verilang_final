@@ -24,10 +24,6 @@ class VeriLangService {
 
     private val srcDir: File get() = projectRoot.resolve("src/main/rascal")
 
-    
-    //recibe la ruta absoluta del archivo fuente y devuelve el RunResult
-    //se ejecuta en un hilo de I/O para no bloquear la interfaz
-     
     suspend fun run(filePath: String): RunResult = withContext(Dispatchers.IO) {
         try {
             println("[VeriLangService] Ejecutando Rascal...")
@@ -75,7 +71,6 @@ class VeriLangService {
             .start()
         process.outputStream.close()
 
-        // leemos stdout y stderr en hilos separados para evitar deadlocks
         val stdoutFuture = java.util.concurrent.Executors.newSingleThreadExecutor()
             .submit<String> { process.inputStream.bufferedReader().readText() }
         val stderrFuture = java.util.concurrent.Executors.newSingleThreadExecutor()
@@ -100,12 +95,7 @@ class VeriLangService {
         return stdout
     }
 
-    
-    //Extrae el primer objeto JSON válido que contenga la clave "success"
-    //de la salida de Rascal 
-     
     private fun extractJson(output: String): String? {
-        // elimina códigos de color ANSI que rascasl a veces imprime
         val clean = output
             .replace(Regex("\\x1b\\[[^a-zA-Z]*[a-zA-Z]"), "")
             .replace(Regex("\\x1b[^\\[\\x1b]"), "")
@@ -129,7 +119,6 @@ class VeriLangService {
                 val candidate = clean.substring(brace, end + 1)
                 try {
                     val parsed = Json.parseToJsonElement(candidate)
-                    // Buscamos el JSON que tenga "success", el que produjo RunnerJson.rsc
                     if (parsed is kotlinx.serialization.json.JsonObject && parsed.containsKey("success"))
                         return candidate
                 } catch (_: Exception) {}

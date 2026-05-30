@@ -455,11 +455,11 @@ private list[str] checkStruct(AST::StructDef st, set[str] types) {
   return errors;
 }
 
-private list[str] checkData(AST::DataDef data, set[str] types) {
-  list[str] errors = duplicateErrors([variant.name | variant <- data.variants], "variant in data <data.name>");
-  for (AST::dataVariantNode(variantName, args) <- data.variants) {
+private list[str] checkData(AST::DataDef defData, set[str] types) {
+  list[str] errors = duplicateErrors([variant.name | variant <- defData.variants], "variant in data " + defData.name);
+  for (AST::dataVariantNode(variantName, args) <- defData.variants) {
     for (arg <- args) {
-      errors += checkTypeExists(arg, types, "variant <data.name>.<variantName>");
+      errors += checkTypeExists(arg, types, "variant " + defData.name + "." + variantName);
     }
   }
   return errors;
@@ -707,8 +707,8 @@ public list[str] check(AST::Module m) {
         errors += checkSpaceParent(space, types);
       case AST::structDefinition(st):
         errors += checkStruct(st, types);
-      case AST::dataDefinition(data):
-        errors += checkData(data, types);
+      case AST::dataDefinition(defData):
+        errors += checkData(defData, types);
       case AST::opDefinition(op):
         errors += checkOperatorTypes(op, types);
       case AST::varDefinition(varDef):

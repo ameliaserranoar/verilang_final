@@ -29,7 +29,6 @@ fun MainWindow() {
     var result   by remember { mutableStateOf<RunResult?>(null) }
     var running  by remember { mutableStateOf(false) }
 
-    // Colores del tema oscuro (puedes cambiarlos a gusto)
     val green   = Color(0xFF2E7D32)
     val red     = Color(0xFFC62828)
     val yellow  = Color(0xFFF57F17)
@@ -43,7 +42,6 @@ fun MainWindow() {
     ) {
         Text("VeriLang Runner", color = text, fontSize = 22.sp)
 
-        // Fila superior: campo de ruta, botón de seleccionar archivo, botón de correr
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -93,7 +91,6 @@ fun MainWindow() {
             }
         }
 
-        // panel de resultados, aparece solo despueus de ejecutar
         result?.let { r ->
             Column(
                 modifier = Modifier
@@ -102,7 +99,6 @@ fun MainWindow() {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // statements de estado Parse / TypeCheck / semantica
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     StatusChip("Parse",     r.parseOk,     green, red)
                     StatusChip("Types",     r.typeCheckOk, green, yellow)
@@ -115,32 +111,26 @@ fun MainWindow() {
                     SectionBox("Módulos", r.modules.joinToString("\n"), Color(0xFF90CAF9))
                 }
 
-                // resumen del AST 
                 if (r.resumen.isNotBlank()) {
                     Text(r.resumen, color = Color(0xFF9E9E9E), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 }
 
-                // error general 
                 if (r.error.isNotBlank()) {
                     SectionBox("Error", r.error, red)
                 }
 
-                // errores de tipos
                 if (r.typeErrors.isNotEmpty()) {
                     SectionBox("Errores de tipos", r.typeErrors.joinToString("\n"), yellow)
                 }
 
-                // errores semanticos
                 if (r.semanticErrors.isNotEmpty()) {
                     SectionBox("Errores semánticos", r.semanticErrors.joinToString("\n"), yellow)
                 }
 
-                // pretty printer
                 if (r.codigoFormateado.isNotBlank()) {
                     SectionBox("Código formateado", r.codigoFormateado, Color(0xFF90CAF9))
                 }
 
-                // salida del programa
                 if (r.output.isNotEmpty()) {
                     SectionBox("Output", r.output.joinToString("\n"), green)
                 }
@@ -149,7 +139,6 @@ fun MainWindow() {
     }
 }
 
-// Chip de estado coloreado (OK / FAIL)
 @Composable
 private fun StatusChip(label: String, ok: Boolean, okColor: Color, failColor: Color) {
     val color = if (ok) okColor else failColor
@@ -162,7 +151,6 @@ private fun StatusChip(label: String, ok: Boolean, okColor: Color, failColor: Co
     }
 }
 
-// Caja con título y contenido scrolleable
 @Composable
 private fun SectionBox(title: String, content: String, color: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
