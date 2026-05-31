@@ -1,6 +1,9 @@
 target/
-build/
 .gradle/
+build/
+gradle/
+gradlew
+gradlew.bat
 *.class
 *.log
 *.tmp
